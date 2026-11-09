@@ -5,7 +5,7 @@ import "leaflet-contextmenu";
 import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import * as L from "leaflet";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, ScaleControl, TileLayer } from "react-leaflet";
 import { toast } from "react-toastify";
 
@@ -19,6 +19,7 @@ import {
     hiderMode,
     isLoading,
     leafletMapContext,
+    mapDataSetupPending,
     mapGeoJSON,
     mapGeoLocation,
     permanentOverlay,
@@ -33,9 +34,11 @@ import { cn } from "@/lib/utils";
 import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
 import { clearCache, determineMapBoundaries } from "@/maps/api";
+import { getLocalPack } from "@/maps/api/local-data";
 
 import { DraggableMarkers } from "./DraggableMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
+import { MapDataSetup } from "./MapDataSetup";
 import { MapPrint } from "./MapPrint";
 import { PolygonDraw } from "./PolygonDraw";
 
@@ -124,6 +127,23 @@ export const Map = ({ className }: { className?: string }) => {
     const $hiderMode = useStore(hiderMode);
     const $isLoading = useStore(isLoading);
     const refreshPending = useRef(false);
+    const [dataSetup, setDataSetup] = useState<
+        "checking" | "download" | "ready"
+    >("checking");
+
+    useEffect(() => {
+        let active = true;
+        void getLocalPack().then((pack) => {
+            if (active) setDataSetup(pack ? "ready" : "download");
+        });
+        return () => {
+            active = false;
+        };
+    }, []);
+    useEffect(() => {
+        mapDataSetupPending.set(dataSetup !== "ready");
+    }, [dataSetup]);
+
     const $followMe = useStore(followMe);
     const $permanentOverlay = useStore(permanentOverlay);
     const map = useStore(leafletMapContext);
@@ -138,7 +158,7 @@ export const Map = ({ className }: { className?: string }) => {
     );
 
     const refreshQuestions = async (focus: boolean = false) => {
-        if (!map) return;
+        if (!map || dataSetup !== "ready") return;
 
         if (isLoading.get()) {
             refreshPending.current = true;
@@ -407,7 +427,7 @@ export const Map = ({ className }: { className?: string }) => {
         if (!map) return;
 
         refreshQuestions(true);
-    }, [$questions, map, $hiderMode]);
+    }, [$questions, map, $hiderMode, dataSetup]);
 
     useEffect(() => {
         const intervalId = setInterval(async () => {
@@ -540,5 +560,12 @@ export const Map = ({ className }: { className?: string }) => {
         }
     }, [$permanentOverlay, map]);
 
-    return displayMap;
+    return (
+        <>
+            {displayMap}
+            {dataSetup === "download" && (
+                <MapDataSetup onReady={() => setDataSetup("ready")} />
+            )}
+        </>
+    );
 };

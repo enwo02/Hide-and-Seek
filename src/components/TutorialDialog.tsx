@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { SidebarGroup, SidebarMenu } from "@/components/ui/sidebar-l";
-import { showTutorial, tutorialStep } from "@/lib/context";
+import { mapDataSetupPending, showTutorial, tutorialStep } from "@/lib/context";
 import { cn } from "@/lib/utils";
 
 import {
@@ -880,7 +880,9 @@ const TutorialOverlay = ({
 };
 
 export const TutorialDialog = () => {
-    const $showTutorial = useStore(showTutorial);
+    const tutorialEnabled = useStore(showTutorial);
+    const setupPending = useStore(mapDataSetupPending);
+    const $showTutorial = tutorialEnabled && !setupPending;
     const dialogRef = useRef<HTMLDivElement>(null);
     const $tutorialStep = useStore(tutorialStep);
 

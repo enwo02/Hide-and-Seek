@@ -371,6 +371,8 @@ export const alwaysUsePastebin = persistentAtom<boolean>(
     },
 );
 
+export const mapDataSetupPending = atom(true);
+
 export const showTutorial = persistentAtom<boolean>("showTutorials", true, {
     encode: JSON.stringify,
     decode: JSON.parse,
