@@ -355,6 +355,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
 
     return (
         <div
+            data-map-actions
             className={cn(
                 "flex justify-end gap-2 max-[412px]:!mb-4 max-[640px]:overflow-x-auto max-[640px]:w-[85vw] max-[640px]:justify-start max-[640px]:[&>button]:flex-shrink-0 max-[640px]:[&>div]:flex-shrink-0 max-[640px]:pb-1",
                 className,
@@ -372,6 +373,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 }}
             />
             <Button
+                data-map-secondary-action
                 className="shadow-md"
                 onClick={saveToFile}
                 title="Download current hiding zone as a JSON file"
@@ -379,6 +381,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 Save File
             </Button>
             <Button
+                data-map-secondary-action
                 className="shadow-md"
                 onClick={() => fileInputRef.current?.click()}
                 title="Load a hiding zone from a JSON file"
@@ -386,6 +389,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 Load File
             </Button>
             <Button
+                data-map-secondary-action
                 className="shadow-md"
                 onClick={async () => {
                     const hidingZoneString = JSON.stringify($hidingZone);
@@ -460,6 +464,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 Share
             </Button>
             <Button
+                data-map-secondary-action
                 className="w-24 shadow-md"
                 onClick={() => {
                     showTutorial.set(true);

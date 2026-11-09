@@ -180,3 +180,19 @@ div.leaflet-control-attribution.leaflet-control {
 [data-tutorial-active="true"] [role="dialog"] {
     position: fixed !important;
 }
+
+/* Visual-only cleanup. Remove map-interface-cleanup from <main> to restore
+   these controls; their components and handlers remain available. */
+.map-interface-cleanup [data-map-secondary-action],
+.map-interface-cleanup .leaflet-full-screen-specific-name,
+.map-interface-cleanup .leaflet-control-easyPrint,
+.map-interface-cleanup .leaflet-draw {
+    display: none !important;
+}
+
+.map-interface-cleanup [data-map-actions] {
+    width: auto;
+    justify-content: flex-end;
+    overflow: visible;
+    padding-bottom: 0;
+}

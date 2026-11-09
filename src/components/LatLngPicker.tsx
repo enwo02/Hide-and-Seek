@@ -1,10 +1,5 @@
 import { useStore } from "@nanostores/react";
-import {
-    ClipboardCopyIcon,
-    ClipboardPasteIcon,
-    EditIcon,
-    LocateIcon,
-} from "lucide-react";
+import { ClipboardPasteIcon, CopyIcon, LocateIcon } from "lucide-react";
 import { OpenLocationCode } from "open-location-code";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
@@ -25,15 +20,6 @@ import {
     CommandItem,
     CommandList,
 } from "./ui/command";
-import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "./ui/dialog";
 import { Separator } from "./ui/separator";
 import { SidebarMenuItem } from "./ui/sidebar-l";
 
@@ -373,13 +359,8 @@ export const LatitudeLongitude = ({
                     </div>
                 )}
 
-                <div
-                    className={cn(
-                        !inlineEdit &&
-                            "flex justify-center gap-2 *:max-w-12 *:w-[20%]",
-                    )}
-                >
-                    {inlineEdit ? (
+                <div className={cn(!inlineEdit && "flex justify-center gap-2")}>
+                    {inlineEdit && (
                         <div className="flex flex-col gap-2 w-full mb-2">
                             <LatLngEditForm
                                 latitude={latitude}
@@ -388,36 +369,6 @@ export const LatitudeLongitude = ({
                                 disabled={disabled}
                             />
                         </div>
-                    ) : (
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button
-                                    disabled={disabled}
-                                    variant="outline"
-                                    title="Edit coordinates"
-                                >
-                                    <EditIcon />
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle className="text-2xl">
-                                        Update {label}
-                                    </DialogTitle>
-                                </DialogHeader>
-                                <LatLngEditForm
-                                    latitude={latitude}
-                                    longitude={longitude}
-                                    onChange={onChange}
-                                    disabled={disabled}
-                                />
-                                <DialogFooter>
-                                    <DialogClose asChild>
-                                        <Button>Done</Button>
-                                    </DialogClose>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
                     )}
                     <div
                         className={
@@ -465,9 +416,43 @@ export const LatitudeLongitude = ({
                                 );
                             }}
                             disabled={disabled}
+                            className="h-auto min-w-0 flex-1 flex-col gap-1 px-2 py-2"
+                            aria-label="Set to current location"
                             title="Set to current location"
                         >
-                            <LocateIcon />
+                            <LocateIcon aria-hidden="true" />
+                            <span className="text-xs">My location</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                if (!navigator || !navigator.clipboard) {
+                                    toast.error(
+                                        "Clipboard API not supported in your browser",
+                                    );
+                                    return;
+                                }
+
+                                toast.promise(
+                                    navigator.clipboard.writeText(
+                                        `${Math.abs(latitude)}°${latitude > 0 ? "N" : "S"}, ${Math.abs(
+                                            longitude,
+                                        )}°${longitude > 0 ? "E" : "W"}`,
+                                    ),
+                                    {
+                                        pending: "Writing to clipboard...",
+                                        success: "Coordinates copied!",
+                                        error: "An error occurred while copying",
+                                    },
+                                    { autoClose: 1000 },
+                                );
+                            }}
+                            className="h-auto min-w-0 flex-1 flex-col gap-1 px-2 py-2"
+                            aria-label="Copy coordinates to clipboard"
+                            title="Copy coordinates to clipboard"
+                        >
+                            <CopyIcon aria-hidden="true" />
+                            <span className="text-xs">Copy</span>
                         </Button>
                         <Button
                             variant="outline"
@@ -514,37 +499,12 @@ export const LatitudeLongitude = ({
                                 );
                             }}
                             disabled={disabled}
+                            className="h-auto min-w-0 flex-1 flex-col gap-1 px-2 py-2"
+                            aria-label="Paste coordinates from clipboard"
                             title="Paste coordinates from clipboard"
                         >
-                            <ClipboardPasteIcon />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                if (!navigator || !navigator.clipboard) {
-                                    toast.error(
-                                        "Clipboard API not supported in your browser",
-                                    );
-                                    return;
-                                }
-
-                                toast.promise(
-                                    navigator.clipboard.writeText(
-                                        `${Math.abs(latitude)}°${latitude > 0 ? "N" : "S"}, ${Math.abs(
-                                            longitude,
-                                        )}°${longitude > 0 ? "E" : "W"}`,
-                                    ),
-                                    {
-                                        pending: "Writing to clipboard...",
-                                        success: "Coordinates copied!",
-                                        error: "An error occurred while copying",
-                                    },
-                                    { autoClose: 1000 },
-                                );
-                            }}
-                            title="Copy coordinates to clipboard"
-                        >
-                            <ClipboardCopyIcon />
+                            <ClipboardPasteIcon aria-hidden="true" />
+                            <span className="text-xs">Paste</span>
                         </Button>
                     </div>
                 </div>

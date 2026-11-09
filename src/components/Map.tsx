@@ -274,6 +274,14 @@ export const Map = ({ className }: { className?: string }) => {
                 contextmenuWidth={140}
                 contextmenuItems={[
                     {
+                        text: "Add Direction (N/S · E/W)",
+                        callback: (e: any) =>
+                            addQuestion({
+                                id: "direction",
+                                data: { lat: e.latlng.lat, lng: e.latlng.lng },
+                            }),
+                    },
+                    {
                         text: "Add Radius",
                         callback: (e: any) =>
                             addQuestion({

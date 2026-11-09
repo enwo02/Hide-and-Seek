@@ -10,7 +10,11 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { SidebarGroup, SidebarMenu } from "@/components/ui/sidebar-l";
+import {
+    SidebarContext,
+    SidebarGroup,
+    SidebarMenu,
+} from "@/components/ui/sidebar-l";
 import { mapDataSetupPending, showTutorial, tutorialStep } from "@/lib/context";
 import { cn } from "@/lib/utils";
 
@@ -884,7 +888,15 @@ export const TutorialDialog = () => {
     const setupPending = useStore(mapDataSetupPending);
     const $showTutorial = tutorialEnabled && !setupPending;
     const dialogRef = useRef<HTMLDivElement>(null);
+
     const $tutorialStep = useStore(tutorialStep);
+    useEffect(() => {
+        if (!$showTutorial) return;
+        const sidebar = SidebarContext.get();
+        const open = tutorialStep.get() === 6;
+        sidebar.setOpen(open);
+        sidebar.setOpenMobile(open);
+    }, [$showTutorial, $tutorialStep]);
 
     const handleNext = () => {
         if ($tutorialStep < tutorialSteps.length - 1) {

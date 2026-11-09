@@ -1,7 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { atom } from "nanostores";
 import * as React from "react";
 import { TbMessage2Question } from "react-icons/tb";
 
@@ -17,7 +16,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useTutorialStep } from "@/hooks/use-tutorial-step";
+import { questionSidebarState } from "@/lib/sidebar-state";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
@@ -26,29 +25,10 @@ const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
-const SIDEBAR_TUTORIAL_STEPS = [6];
 export const MENU_ITEM_CLASSNAME =
     "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0";
 
-type SidebarContextType = {
-    state: "expanded" | "collapsed";
-    open: boolean;
-    setOpen: (open: boolean) => void;
-    openMobile: boolean;
-    setOpenMobile: (open: boolean) => void;
-    isMobile: boolean;
-    toggleSidebar: () => void;
-};
-
-export const SidebarContext = atom<SidebarContextType>({
-    state: "expanded",
-    open: true,
-    setOpen: () => {},
-    openMobile: false,
-    setOpenMobile: () => {},
-    isMobile: false,
-    toggleSidebar: () => {},
-});
+export const SidebarContext = questionSidebarState;
 
 const SidebarProvider = React.forwardRef<
     HTMLDivElement,
@@ -184,17 +164,8 @@ const Sidebar = React.forwardRef<
         },
         ref,
     ) => {
-        // eslint-disable-next-line prefer-const
-        let { isMobile, state, openMobile, setOpenMobile } =
+        const { isMobile, state, openMobile, setOpenMobile } =
             useStore(SidebarContext);
-
-        state = useTutorialStep(
-            state,
-            SIDEBAR_TUTORIAL_STEPS,
-            "expanded",
-            "collapsed",
-        );
-        openMobile = useTutorialStep(openMobile, SIDEBAR_TUTORIAL_STEPS);
 
         if (collapsible === "none") {
             return (
@@ -288,12 +259,15 @@ const SidebarTrigger = React.forwardRef<
     React.ElementRef<typeof Button>,
     React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-    const { toggleSidebar } = useStore(SidebarContext);
+    const { toggleSidebar, open, openMobile, isMobile } =
+        useStore(SidebarContext);
 
     return (
         <button
             ref={ref}
             data-sidebar="trigger"
+            aria-label="Toggle questions sidebar"
+            aria-expanded={isMobile ? openMobile : open}
             size="icon"
             className={cn(
                 "bg-white hover:bg-[#f4f4f4] text-black rounded-sm border-2 border-black border-opacity-30 cursor-pointer py-1 px-2",

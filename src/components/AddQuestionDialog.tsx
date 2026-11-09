@@ -26,6 +26,17 @@ export const AddQuestionDialog = ({
     const $isLoading = useStore(isLoading);
     const [open, setOpen] = React.useState(false);
 
+    const runAddDirection = () => {
+        const map = leafletMapContext.get();
+        if (!map) return false;
+        const center = map.getCenter();
+        addQuestion({
+            id: "direction",
+            data: { lat: center.lat, lng: center.lng },
+        });
+        return true;
+    };
+
     const runAddRadius = () => {
         const map = leafletMapContext.get();
         if (!map) return false;
@@ -145,6 +156,14 @@ export const AddQuestionDialog = ({
                 </DialogDescription>
 
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <SidebarMenuButton
+                        onClick={() => {
+                            if (runAddDirection()) setOpen(false);
+                        }}
+                        disabled={$isLoading}
+                    >
+                        Add Direction (N/S · E/W)
+                    </SidebarMenuButton>
                     <SidebarMenuButton
                         onClick={() => {
                             if (runAddRadius()) setOpen(false);

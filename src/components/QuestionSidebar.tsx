@@ -21,6 +21,7 @@ import {
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import {
+    DirectionQuestionComponent,
     MatchingQuestionComponent,
     MeasuringQuestionComponent,
     RadiusQuestionComponent,
@@ -48,6 +49,14 @@ export const QuestionSidebar = () => {
             <SidebarContent>
                 {$questions.map((question) => {
                     switch (question.id) {
+                        case "direction":
+                            return (
+                                <DirectionQuestionComponent
+                                    key={question.key}
+                                    data={question.data}
+                                    questionKey={question.key}
+                                />
+                            );
                         case "radius":
                             return (
                                 <RadiusQuestionComponent

@@ -111,6 +111,11 @@ const getDefaultUnit = () => {
     }
 };
 
+const directionQuestionSchema = ordinaryBaseQuestionSchema.extend({
+    axis: z.enum(["latitude", "longitude"]).default("latitude"),
+    positive: z.boolean().default(true),
+});
+
 const radiusQuestionSchema = ordinaryBaseQuestionSchema.extend({
     radius: z.number().min(0, "You cannot have a negative radius").default(50),
     unit: unitsSchema.default(getDefaultUnit),
@@ -426,6 +431,11 @@ export const measuringQuestionSchema = z.union([
 
 export const questionSchema = z.union([
     z.object({
+        id: z.literal("direction"),
+        key: z.number().default(Math.random),
+        data: directionQuestionSchema,
+    }),
+    z.object({
         id: z.literal("radius"),
         key: z.number().default(Math.random),
         data: radiusQuestionSchema,
@@ -455,6 +465,7 @@ export const questionSchema = z.union([
 export const questionsSchema = z.array(questionSchema);
 
 export type Units = z.infer<typeof unitsSchema>;
+export type DirectionQuestion = z.infer<typeof directionQuestionSchema>;
 export type RadiusQuestion = z.infer<typeof radiusQuestionSchema>;
 export type ThermometerQuestion = z.infer<typeof thermometerQuestionSchema>;
 export type TentacleQuestion = z.infer<typeof tentacleQuestionSchema>;

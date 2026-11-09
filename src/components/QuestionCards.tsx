@@ -1,3 +1,4 @@
+export { DirectionQuestionComponent } from "./cards/direction";
 export { MatchingQuestionComponent } from "./cards/matching";
 export { MeasuringQuestionComponent } from "./cards/measuring";
 export { RadiusQuestionComponent } from "./cards/radius";

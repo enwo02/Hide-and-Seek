@@ -1,6 +1,11 @@
 import type { Feature, FeatureCollection } from "geojson";
 
 import {
+    adjustPerDirection,
+    directionPlanningPolygon,
+    hiderifyDirection,
+} from "./questions/direction";
+import {
     adjustPerMatching,
     hiderifyMatching,
     matchingPlanningPolygon,
@@ -32,6 +37,9 @@ export * from "./geo-utils";
 export const hiderifyQuestion = async (question: Question) => {
     if (question.data.drag) {
         switch (question.id) {
+            case "direction":
+                question.data = await hiderifyDirection(question.data);
+                break;
             case "radius":
                 question.data = await hiderifyRadius(question.data);
                 break;
@@ -59,6 +67,8 @@ export const determinePlanningPolygon = async (
 ) => {
     if (planningModeEnabled && question.data.drag && !question.data.hidden) {
         switch (question.id) {
+            case "direction":
+                return directionPlanningPolygon(question.data);
             case "radius":
                 return radiusPlanningPolygon(question.data);
             case "thermometer":
@@ -83,6 +93,8 @@ export async function adjustMapGeoDataForQuestion(
 
     try {
         switch (question?.id) {
+            case "direction":
+                return await adjustPerDirection(question.data, mapGeoData);
             case "radius":
                 return await adjustPerRadius(question.data, mapGeoData);
             case "thermometer":

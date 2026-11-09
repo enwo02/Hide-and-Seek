@@ -17,6 +17,7 @@ import type { ICON_COLORS } from "@/maps/api";
 
 import { LatitudeLongitude } from "./LatLngPicker";
 import {
+    DirectionQuestionComponent,
     MatchingQuestionComponent,
     MeasuringQuestionComponent,
     RadiusQuestionComponent,
@@ -111,6 +112,14 @@ const ColoredMarker = ({
                     .filter((q) => q.key === questionKey)
                     .map((q) => {
                         switch (q.id) {
+                            case "direction":
+                                return (
+                                    <DirectionQuestionComponent
+                                        key={q.key}
+                                        data={q.data}
+                                        questionKey={q.key}
+                                    />
+                                );
                             case "radius":
                                 return (
                                     <RadiusQuestionComponent
@@ -226,6 +235,7 @@ export const DraggableMarkers = () => {
                     return null;
 
                 switch (question.id) {
+                    case "direction":
                     case "radius":
                     case "tentacles":
                     case "matching":
