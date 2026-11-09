@@ -58,6 +58,7 @@ import { OVERPASS_HOSTS } from "@/maps/api/constants";
 import { questionsSchema } from "@/maps/schema";
 
 import { LatitudeLongitude } from "./LatLngPicker";
+import { OfflineGameData } from "./OfflineGameData";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
@@ -483,6 +484,8 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             </DrawerTitle>
                         </DrawerHeader>
                         <div className="overflow-y-scroll max-h-[40vh] flex flex-col items-center gap-4 max-w-[1000px] px-12">
+                            <OfflineGameData />
+                            <Separator />
                             <div className="flex flex-row max-[330px]:flex-col gap-4">
                                 <Button
                                     onClick={() => {

@@ -2,12 +2,8 @@ import * as turf from "@turf/turf";
 
 import { hiderMode } from "@/lib/context";
 import { findTentacleLocations } from "@/maps/api";
-import {
-    arcBuffer,
-    arcDistance,
-    geoSpatialVoronoi,
-    safeUnion,
-} from "@/maps/geo-utils";
+import { arcBuffer, arcDistance } from "@/maps/geo-utils";
+import { tentacleGeometry } from "@/maps/geo-utils/tentacle-background";
 import type { TentacleQuestion, Units } from "@/maps/schema";
 
 const filterPointsWithinRadius = async (
@@ -73,28 +69,19 @@ export const adjustPerTentacle = async (
               )
             : rawPoints;
 
-    const voronoi = geoSpatialVoronoi(points);
-
-    const correctPolygon = voronoi.features.find((feature: any) => {
-        if (!question.location) return false;
-        return (
-            feature.properties.site.properties.name ===
-            question.location.properties.name
-        );
-    });
-    if (!correctPolygon) {
-        return mapData;
-    }
-
     const circle = await arcBuffer(
         turf.featureCollection([turf.point([question.lng, question.lat])]),
         question.radius,
         question.unit,
     );
 
-    return turf.intersect(
-        turf.featureCollection([safeUnion(mapData), correctPolygon, circle]),
-    );
+    return tentacleGeometry({
+        kind: "adjust",
+        points,
+        mapData,
+        circle,
+        name: question.location.properties.name,
+    });
 };
 
 export const hiderifyTentacles = async (question: TentacleQuestion) => {
@@ -119,7 +106,7 @@ export const hiderifyTentacles = async (question: TentacleQuestion) => {
               )
             : rawPoints;
 
-    const voronoi = geoSpatialVoronoi(points);
+    const voronoi = await tentacleGeometry({ kind: "voronoi", points });
 
     const hider = turf.point([$hiderMode.longitude, $hiderMode.latitude]);
     const location = turf.point([question.lng, question.lat]);
@@ -168,26 +155,11 @@ export const tentaclesPlanningPolygon = async (question: TentacleQuestion) => {
               )
             : rawPoints;
 
-    const voronoi = geoSpatialVoronoi(points);
     const circle = await arcBuffer(
         turf.featureCollection([turf.point([question.lng, question.lat])]),
         question.radius,
         question.unit,
     );
 
-    const interiorVoronoi = voronoi.features
-        .map((feature) =>
-            turf.intersect(turf.featureCollection([feature, circle])),
-        )
-        .filter((feature) => feature !== null);
-
-    return turf.combine(
-        turf.featureCollection(
-            interiorVoronoi
-                .map((x: any) => turf.polygonToLine(x))
-                .flatMap((line) =>
-                    line.type === "FeatureCollection" ? line.features : [line],
-                ),
-        ),
-    );
+    return tentacleGeometry({ kind: "planning", points, circle });
 };

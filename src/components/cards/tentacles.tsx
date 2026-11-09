@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
-import { Suspense, use, useEffect, useState } from "react";
+import { Suspense, use, useEffect, useMemo, useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
@@ -54,6 +54,21 @@ export const TentacleQuestionComponent = ({
             .map((q) => q.key)
             .indexOf(questionKey) + 1
     }`;
+
+    const locationsPromise = useMemo(
+        () =>
+            data.locationType === "custom"
+                ? Promise.resolve(turf.featureCollection(data.places))
+                : findTentacleLocations(data),
+        [
+            data.locationType,
+            data.lat,
+            data.lng,
+            data.radius,
+            data.unit,
+            data.locationType === "custom" ? JSON.stringify(data.places) : "",
+        ],
+    );
 
     return (
         <QuestionCard
@@ -209,13 +224,7 @@ export const TentacleQuestionComponent = ({
                 >
                     <TentacleLocationSelector
                         data={data}
-                        promise={
-                            data.locationType === "custom"
-                                ? Promise.resolve(
-                                      turf.featureCollection(data.places),
-                                  )
-                                : findTentacleLocations(data)
-                        }
+                        promise={locationsPromise}
                         disabled={!data.drag || $isLoading}
                     />
                 </Suspense>
@@ -274,11 +283,25 @@ const TentacleLocationSelector = ({
                 }),
             );
             if (!cancelled) {
-                setFilteredFeatures(
-                    locations.features.filter(
-                        (_: any, index: number) => included[index],
-                    ),
+                const filtered = locations.features.filter(
+                    (_: any, index: number) => included[index],
                 );
+                setFilteredFeatures(filtered);
+                // Validate only after filtering finishes, never against the
+                // initial empty list while rendering a saved question.
+                const selectedName = data.location
+                    ? data.location.properties?.name
+                    : null;
+                if (
+                    selectedName &&
+                    !filtered.some(
+                        (feature: any) =>
+                            feature.properties.name === selectedName,
+                    )
+                ) {
+                    data.location = false;
+                    questionModified();
+                }
             }
         };
 
@@ -287,20 +310,6 @@ const TentacleLocationSelector = ({
             cancelled = true;
         };
     }, [locations, data.lat, data.lng, data.radius, data.unit]);
-
-    // If the currently selected location is no longer within radius, clear it.
-    const _selectedLocationName = data.location
-        ? data.location.properties?.name
-        : null;
-    if (
-        _selectedLocationName &&
-        !filteredFeatures.find(
-            (f: any) => f.properties.name === _selectedLocationName,
-        )
-    ) {
-        data.location = false;
-        questionModified();
-    }
 
     return (
         <Select

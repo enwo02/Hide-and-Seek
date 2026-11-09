@@ -5,7 +5,7 @@ import "leaflet-contextmenu";
 import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import * as L from "leaflet";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, ScaleControl, TileLayer } from "react-leaflet";
 import { toast } from "react-toastify";
 
@@ -123,6 +123,7 @@ export const Map = ({ className }: { className?: string }) => {
     const $thunderforestApiKey = useStore(thunderforestApiKey);
     const $hiderMode = useStore(hiderMode);
     const $isLoading = useStore(isLoading);
+    const refreshPending = useRef(false);
     const $followMe = useStore(followMe);
     const $permanentOverlay = useStore(permanentOverlay);
     const map = useStore(leafletMapContext);
@@ -139,51 +140,52 @@ export const Map = ({ className }: { className?: string }) => {
     const refreshQuestions = async (focus: boolean = false) => {
         if (!map) return;
 
-        if ($isLoading) return;
+        if (isLoading.get()) {
+            refreshPending.current = true;
+            return;
+        }
 
         isLoading.set(true);
 
-        if ($questions.length === 0) {
-            await clearCache();
-        }
+        try {
+            if ($questions.length === 0) {
+                await clearCache();
+            }
 
-        let mapGeoData = mapGeoJSON.get();
+            let mapGeoData = mapGeoJSON.get();
 
-        if (!mapGeoData) {
-            const polyGeoData = polyGeoJSON.get();
-            if (polyGeoData) {
-                mapGeoData = polyGeoData;
-                mapGeoJSON.set(polyGeoData);
-            } else {
-                await toast.promise(
-                    determineMapBoundaries()
-                        .then((x) => {
+            if (!mapGeoData) {
+                const polyGeoData = polyGeoJSON.get();
+                if (polyGeoData) {
+                    mapGeoData = polyGeoData;
+                    mapGeoJSON.set(polyGeoData);
+                } else {
+                    await toast.promise(
+                        determineMapBoundaries().then((x) => {
                             mapGeoJSON.set(x);
                             mapGeoData = x;
-                        })
-                        .catch((error) => console.log(error)),
-                    {
-                        error: "Error refreshing map data",
-                    },
-                );
-            }
-        }
-
-        if ($hiderMode !== false) {
-            for (const question of $questions) {
-                await hiderifyQuestion(question);
+                        }),
+                        {
+                            error: "Error refreshing map data",
+                        },
+                    );
+                }
             }
 
-            triggerLocalRefresh.set(Math.random()); // Refresh the question sidebar with new information but not this map
-        }
+            if ($hiderMode !== false) {
+                for (const question of $questions) {
+                    await hiderifyQuestion(question);
+                }
 
-        map.eachLayer((layer: any) => {
-            if (layer.questionKey || layer.questionKey === 0) {
-                map.removeLayer(layer);
+                triggerLocalRefresh.set(Math.random()); // Refresh the question sidebar with new information but not this map
             }
-        });
 
-        try {
+            map.eachLayer((layer: any) => {
+                if (layer.questionKey || layer.questionKey === 0) {
+                    map.removeLayer(layer);
+                }
+            });
+
             mapGeoData = await applyQuestionsToMapGeoData(
                 $questions,
                 mapGeoData,
@@ -393,6 +395,13 @@ export const Map = ({ className }: { className?: string }) => {
         ),
         [map, $baseTileLayer, $thunderforestApiKey],
     );
+
+    useEffect(() => {
+        if (!$isLoading && refreshPending.current) {
+            refreshPending.current = false;
+            void refreshQuestions(false);
+        }
+    }, [$isLoading]);
 
     useEffect(() => {
         if (!map) return;

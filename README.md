@@ -1,5 +1,9 @@
 # Jet Lag The Game: Hide and Seek Map Generator
 
+This working copy adds downloadable regional game data and background tentacle
+calculations. See [offline game-data setup and coverage](docs/offline-game-data.md)
+for preparing Switzerland's data once and using it without an application server.
+
 A tool to trivially generate interactive maps for viewing hiding possibilities in Jet Lag The Game's Hide and Seek. So far, the following questions have been implemented (see https://github.com/taibeled/JetLagHideAndSeek/issues/9 for more):
 
 - Radius

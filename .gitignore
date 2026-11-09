@@ -22,3 +22,9 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Resumable source downloads; publish only completed regional packs.
+.game-data-cache/
+public/runtime/
+__pycache__/
+.venv-game-data/

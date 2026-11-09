@@ -26,54 +26,66 @@ export const cacheFetch = async (
     url: string,
     loadingText?: string,
     cacheType: CacheType = CacheType.CACHE,
+    signal?: AbortSignal,
 ) => {
+    let cache: Cache | undefined;
     try {
-        const cache = await determineCache(cacheType);
+        cache = await determineCache(cacheType);
+    } catch {
+        // Storage restrictions should not prevent online play.
+    }
 
-        const cachedResponse = await cache.match(url);
-        if (cachedResponse) {
-            if (!cachedResponse.ok) {
-                await cache.delete(url);
-            } else {
-                return cachedResponse.clone();
-            }
+    const cachedResponse = await cache?.match(url);
+    if (cachedResponse) {
+        if (!cachedResponse.ok) {
+            await cache?.delete(url);
+        } else {
+            return cachedResponse.clone();
         }
+    }
 
-        const inflightKey = `${cacheType}:${url}`;
-        const existingFetch = inFlightFetches.get(inflightKey);
-        if (existingFetch) {
-            const response = await existingFetch;
-            return response.clone();
-        }
+    const inflightKey = `${cacheType}:${url}`;
+    const existingFetch = inFlightFetches.get(inflightKey);
+    if (existingFetch) {
+        const response = await existingFetch;
+        return response.clone();
+    }
 
-        const fetchAndMaybeCache = async () => {
-            const response = await fetch(url);
-            if (response.ok) {
-                await cache.put(url, response.clone());
-            } else {
-                await cache.delete(url);
-            }
-            return response;
-        };
-
-        const fetchPromise = fetchAndMaybeCache();
-        inFlightFetches.set(inflightKey, fetchPromise);
-
+    const fetchAndMaybeCache = async () => {
+        if (typeof navigator !== "undefined" && navigator.onLine === false)
+            throw new Error(
+                "Offline: this question is not available in the saved data.",
+            );
+        const response = await fetch(url, {
+            signal: signal
+                ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
+                : AbortSignal.timeout(30000),
+        });
         try {
-            const response = await (loadingText
-                ? toast.promise(fetchPromise, {
-                      pending: loadingText,
-                  })
-                : fetchPromise);
-
-            return response.clone();
-        } finally {
-            inFlightFetches.delete(inflightKey);
+            if (response.ok) {
+                await cache?.put(url, response.clone());
+            } else {
+                await cache?.delete(url);
+            }
+        } catch {
+            // A full browser cache must not discard a successful response.
         }
-    } catch (e) {
-        console.log(e); // Probably a caches not supported error
+        return response;
+    };
 
-        return fetch(url);
+    const fetchPromise = fetchAndMaybeCache();
+    inFlightFetches.set(inflightKey, fetchPromise);
+
+    try {
+        const response = await (loadingText
+            ? toast.promise(fetchPromise, {
+                  pending: loadingText,
+              })
+            : fetchPromise);
+
+        return response.clone();
+    } finally {
+        inFlightFetches.delete(inflightKey);
     }
 };
 

@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 
 import {
     additionalMapGeoLocations,
+    mapGeoJSON,
     mapGeoLocation,
     overpassCustomHost,
     overpassHost,
@@ -15,6 +16,19 @@ import { safeUnion } from "@/maps/geo-utils";
 
 import { cacheFetch, determineCache } from "./cache";
 import { LOCATION_FIRST_TAG, OVERPASS_HOSTS } from "./constants";
+import {
+    containsBox,
+    coverageContains,
+    elementPoint,
+    geometryGeoJSON,
+    getLocalPack,
+    localPlaces,
+    localRadius,
+    localTrainLineNodes,
+    resolveGeometry,
+    supportsFilter,
+    tagPredicate,
+} from "./local-data";
 import type {
     EncompassingTentacleQuestionSchema,
     HomeGameMatchingQuestions,
@@ -44,49 +58,67 @@ export const getOverpassData = async (
             : selectedHost || allHostUrls[0];
     const fallbackBaseUrls = allHostUrls.filter((h) => h !== primaryBaseUrl);
 
-    const primaryUrl = `${primaryBaseUrl}?data=${encodedQuery}`;
-    let response = await cacheFetch(primaryUrl, loadingText, cacheType);
-
-    if (!response.ok) {
-        for (const fallbackBase of fallbackBaseUrls) {
+    const hosts = [primaryBaseUrl, ...fallbackBaseUrls];
+    const operation = async () => {
+        let lastError: unknown;
+        for (const host of hosts) {
             try {
-                const fallbackResponse = await cacheFetch(
-                    `${fallbackBase}?data=${encodedQuery}`,
-                    loadingText,
+                const response = await cacheFetch(
+                    `${host}?data=${encodedQuery}`,
+                    undefined,
                     cacheType,
                 );
-                if (fallbackResponse.ok) {
+                if (!response.ok)
+                    throw new Error(`Server returned ${response.status}`);
+                const data = await response.json();
+                if (data.remark || !Array.isArray(data.elements)) {
                     const cache = await determineCache(cacheType);
-                    await cache.put(primaryUrl, fallbackResponse.clone());
-                    response = fallbackResponse;
-                    break;
+                    await cache.delete(`${host}?data=${encodedQuery}`);
+                    throw new Error(
+                        data.remark || "Invalid game-data response",
+                    );
                 }
-            } catch {
-                toast.error(
-                    `Could not load data from Overpass: ${response.status} ${response.statusText}`,
-                    { toastId: "overpass-error" },
-                );
-                return { elements: [] };
+                return data;
+            } catch (error) {
+                lastError = error;
             }
         }
-    }
-
-    if (!response.ok) {
-        toast.error(
-            `Could not load data from Overpass: ${response.status} ${response.statusText}`,
-            { toastId: "overpass-error" },
+        throw new Error(
+            `Game data unavailable. Download a regional pack in Options, or retry. ${lastError}`,
         );
-        return { elements: [] };
-    }
-
-    const data = await response.json();
-    return data;
+    };
+    return loadingText
+        ? toast.promise(operation(), {
+              pending: loadingText,
+              error: "Could not load game data. Try downloading a regional pack in Options.",
+          })
+        : operation();
 };
 
 export const determineGeoJSON = async (
     osmId: string,
     osmTypeLetter: "W" | "R" | "N",
 ): Promise<any> => {
+    const pack = await getLocalPack();
+    const local = pack?.geometry.find(
+        (el) =>
+            el.id === Number(osmId) &&
+            el.type ===
+                ({ W: "way", R: "relation", N: "node" } as const)[
+                    osmTypeLetter
+                ],
+    );
+    if (local) {
+        const geo = structuredClone(await geometryGeoJSON(pack!, local));
+        return {
+            ...geo,
+            features: geo.features.filter(
+                (feature) =>
+                    feature.geometry?.type === "Polygon" ||
+                    feature.geometry?.type === "MultiPolygon",
+            ),
+        };
+    }
     const osmTypeMap: { [key: string]: string } = {
         W: "way",
         R: "relation",
@@ -112,6 +144,17 @@ export const findTentacleLocations = async (
     question: TentacleLocationQuery,
     text: string = "Determining tentacle locations...",
 ) => {
+    const pack = await getLocalPack();
+    const local =
+        pack &&
+        localRadius(
+            pack,
+            LOCATION_FIRST_TAG[question.locationType],
+            question.locationType,
+            question.lng,
+            question.lat,
+            turf.convertLength(question.radius, question.unit, "kilometers"),
+        );
     const query = `
 [out:json][timeout:25];
 nwr["${LOCATION_FIRST_TAG[question.locationType]}"="${question.locationType}"](around:${turf.convertLength(
@@ -121,7 +164,13 @@ nwr["${LOCATION_FIRST_TAG[question.locationType]}"="${question.locationType}"](a
     )}, ${question.lat}, ${question.lng});
 out center;
     `;
-    const data = await getOverpassData(query, text);
+    const data =
+        local !== null && local !== undefined
+            ? { elements: local }
+            : await getOverpassData(
+                  query,
+                  pack ? `Outside downloaded coverage. ${text}` : text,
+              );
     const elements = data.elements;
     const response = turf.points([]);
     elements.forEach((element: any) => {
@@ -159,6 +208,35 @@ export const findAdminBoundary = async (
     longitude: number,
     adminLevel: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10,
 ) => {
+    const pack = await getLocalPack();
+    if (
+        pack &&
+        (pack.boundaries || adminLevel === 2) &&
+        containsBox(pack, [longitude, latitude, longitude, latitude])
+    ) {
+        const candidates = pack.geometry.filter(
+            (el) =>
+                el.tags?.admin_level === String(adminLevel) &&
+                (!el.bounds ||
+                    (longitude >= el.bounds.minlon &&
+                        longitude <= el.bounds.maxlon &&
+                        latitude >= el.bounds.minlat &&
+                        latitude <= el.bounds.maxlat)),
+        );
+        for (const candidate of candidates) {
+            const geo = await geometryGeoJSON(pack, candidate);
+            const boundary = geo.features.find(
+                (feature) =>
+                    (feature.geometry?.type === "Polygon" ||
+                        feature.geometry?.type === "MultiPolygon") &&
+                    turf.booleanPointInPolygon(
+                        [longitude, latitude],
+                        feature.geometry,
+                    ),
+            );
+            if (boundary) return boundary;
+        }
+    }
     const query = `
 [out:json];
 is_in(${latitude}, ${longitude})->.a;
@@ -172,7 +250,7 @@ out geom;
 
 export const fetchCoastline = async () => {
     const response = await cacheFetch(
-        import.meta.env.BASE_URL + "/coastline50.geojson",
+        import.meta.env.BASE_URL.replace(/\/$/, "") + "/coastline50.geojson",
         "Fetching coastline data...",
         CacheType.PERMANENT_CACHE,
     );
@@ -180,8 +258,17 @@ export const fetchCoastline = async () => {
     return data;
 };
 
-export const trainLineNodeFinder = async (node: string): Promise<number[]> => {
+export const trainLineNodeFinder = async (
+    node: string,
+    hiderStationId?: number,
+): Promise<number[]> => {
     const nodeId = node.split("/")[1];
+    const pack = await getLocalPack();
+    const local =
+        pack && hiderStationId !== undefined
+            ? localTrainLineNodes(pack, Number(nodeId), hiderStationId)
+            : null;
+    if (local !== null) return local;
     const tagQuery = `
 [out:json];
 node(${nodeId});
@@ -247,6 +334,107 @@ export const findPlacesInZone = async (
     alternatives: string[] = [],
     timeoutDuration: number = 0,
 ) => {
+    // Use the actual game polygon, not its bounding box, to select local points.
+    const pack = await getLocalPack();
+    const filters = [filter, ...alternatives];
+    const predicates = filters.map(tagPredicate);
+    if (
+        pack &&
+        outType === "geom" &&
+        predicates.every(Boolean) &&
+        (!pack.incompleteBoundaries?.length ||
+            (pack.incompleteGeometry &&
+                !pack.incompleteGeometry.some((el) =>
+                    predicates.some((predicate) =>
+                        predicate!({ ...el, type: "relation" }),
+                    ),
+                ))) &&
+        ((pack.highspeed && filter === "[highspeed=yes]") ||
+            (pack.boundaries &&
+                filters.every((f) => /^\[admin_level=\d+\]/.test(f))))
+    ) {
+        const polygon =
+            mapGeoJSON.get() ??
+            polyGeoJSON.get() ??
+            (await determineMapBoundaries());
+        if (coverageContains(pack, polygon)) {
+            const polygons =
+                "features" in polygon ? polygon.features : [polygon];
+            const selected = pack.geometry.filter(
+                (el) =>
+                    predicates.some((predicate) => predicate!(el)) &&
+                    (searchType === "nwr" || searchType === el.type),
+            );
+            const box = turf.bbox(polygon);
+            const results = await Promise.all(
+                selected
+                    .filter(
+                        (el) =>
+                            !el.bounds ||
+                            !(
+                                el.bounds.maxlon < box[0] ||
+                                el.bounds.minlon > box[2] ||
+                                el.bounds.maxlat < box[1] ||
+                                el.bounds.minlat > box[3]
+                            ),
+                    )
+                    .map(async (el) => {
+                        const geo = await geometryGeoJSON(pack, el);
+                        return geo.features.some((feature) =>
+                            polygons.some((poly: any) =>
+                                turf.booleanIntersects(feature, poly),
+                            ),
+                        )
+                            ? (await resolveGeometry(pack, el)).elements
+                            : [];
+                    }),
+            );
+            return {
+                elements: _.uniqBy(
+                    results.flat(),
+                    (el) => `${el.type}/${el.id}`,
+                ),
+            };
+        }
+    }
+    if (
+        pack &&
+        outType === "center" &&
+        filters.every(supportsFilter) &&
+        predicates.every(Boolean)
+    ) {
+        const polygon =
+            mapGeoJSON.get() ??
+            polyGeoJSON.get() ??
+            (await determineMapBoundaries());
+        if (coverageContains(pack, polygon)) {
+            const data = localPlaces(pack, polygon, filters, searchType);
+            const exclusions = await Promise.all(
+                additionalMapGeoLocations
+                    .get()
+                    .filter((entry) => !entry.added)
+                    .map((entry) =>
+                        determineGeoJSON(
+                            entry.location.properties.osm_id.toString(),
+                            entry.location.properties.osm_type,
+                        ),
+                    ),
+            );
+            if (exclusions.length)
+                data.elements = data.elements.filter((el) => {
+                    const point = elementPoint(el);
+                    return (
+                        point &&
+                        !exclusions.some((geo) =>
+                            geo.features.some((feature: any) =>
+                                turf.booleanPointInPolygon(point, feature),
+                            ),
+                        )
+                    );
+                });
+            return data;
+        }
+    }
     let query = "";
     const $polyGeoJSON = polyGeoJSON.get();
     if ($polyGeoJSON) {
@@ -379,7 +567,7 @@ export const nearestToQuestion = async (
 ) => {
     let radius = 30;
     let instances: any = { features: [] };
-    while (instances.features.length === 0) {
+    while (instances.features.length === 0 && radius <= 600) {
         instances = await findTentacleLocations(
             {
                 lat: question.lat,
@@ -392,6 +580,8 @@ export const nearestToQuestion = async (
         );
         radius += 30;
     }
+    if (instances.features.length === 0)
+        throw new Error("No matching locations found within 600 miles");
     const questionPoint = turf.point([question.lng, question.lat]);
     return turf.nearestPoint(questionPoint, instances as any);
 };

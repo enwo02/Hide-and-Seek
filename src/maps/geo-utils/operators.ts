@@ -1,3 +1,5 @@
+import "@/maps/api/runtime-assets";
+
 import * as units from "@arcgis/core/core/units.js";
 import * as geodesicBufferOperator from "@arcgis/core/geometry/operators/geodesicBufferOperator.js";
 import * as geodeticDistanceOperator from "@arcgis/core/geometry/operators/geodeticDistanceOperator.js";

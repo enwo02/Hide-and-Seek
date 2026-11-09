@@ -338,12 +338,12 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
         );
 
         if (question.type === "same-train-line") {
-            const nodes = await trainLineNodeFinder(
-                nearestSeekerTrainStation.properties.id,
-            );
-
             const hiderId = parseInt(
                 nearestHiderTrainStation.properties.id.split("/")[1],
+            );
+            const nodes = await trainLineNodeFinder(
+                nearestSeekerTrainStation.properties.id,
+                hiderId,
             );
 
             if (nodes.includes(hiderId)) {
