@@ -25,17 +25,18 @@ export const mapGeoLocation = persistentAtom<OpenStreetMap>(
         type: "Feature",
         properties: {
             osm_type: "R",
-            osm_id: 51701,
-            osm_key: "place",
-            osm_value: "country",
-            type: "country",
-            name: "Switzerland",
+            osm_id: 1682248,
+            osm_key: "boundary",
+            osm_value: "administrative",
+            type: "administrative",
+            name: "Zurich",
+            state: "Municipality",
             countrycode: "CH",
-            extent: [47.81, 5.95, 45.81, 10.5],
+            extent: [47.434665, 8.4480182, 47.3202184, 8.6254529],
         },
         geometry: {
             type: "Point",
-            coordinates: [46.8, 8.23],
+            coordinates: [47.3774417, 8.53673555],
         },
     },
     {
@@ -323,7 +324,7 @@ export const hidingZone = computed(
 export const drawingQuestionKey = atom<number>(-1);
 export const planningModeEnabled = persistentAtom<boolean>(
     "planningModeEnabled",
-    false,
+    true,
     {
         encode: JSON.stringify,
         decode: JSON.parse,
