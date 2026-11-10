@@ -269,6 +269,9 @@ export const Map = ({ className }: { className?: string }) => {
             <MapContainer
                 center={$mapGeoLocation.geometry.coordinates}
                 zoom={5}
+                touchZoom={true}
+                // Preserve the exact pinch scale instead of snapping on release.
+                zoomSnap={0}
                 className={cn("w-[500px] h-[500px]", className)}
                 ref={leafletMapContext.set}
                 // @ts-expect-error Typing doesn't update from react-contextmenu
