@@ -272,6 +272,8 @@ export const Map = ({ className }: { className?: string }) => {
                 touchZoom={true}
                 // Preserve the exact pinch scale instead of snapping on release.
                 zoomSnap={0}
+                // Leaflet blocks new drags during its post-pinch zoom animation.
+                zoomAnimation={false}
                 className={cn("w-[500px] h-[500px]", className)}
                 ref={leafletMapContext.set}
                 // @ts-expect-error Typing doesn't update from react-contextmenu
