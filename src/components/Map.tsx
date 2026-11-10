@@ -20,6 +20,7 @@ import {
     isLoading,
     leafletMapContext,
     mapDataSetupPending,
+    locationCenterRequest,
     mapGeoJSON,
     mapGeoLocation,
     permanentOverlay,
@@ -180,6 +181,7 @@ export const Map = ({ className }: { className?: string }) => {
                     mapGeoData = polyGeoData;
                     mapGeoJSON.set(polyGeoData);
                 } else {
+    const $locationCenterRequest = useStore(locationCenterRequest);
                     await toast.promise(
                         determineMapBoundaries().then((x) => {
                             mapGeoJSON.set(x);
@@ -528,15 +530,25 @@ export const Map = ({ className }: { className?: string }) => {
                 geoWatchIdRef.current = null;
             }
         };
-    }, [$followMe, map]);
+    }, [$followMe, map, $locationCenterRequest]);
 
     useEffect(() => {
         if (!map) return;
 
+        if (!navigator.geolocation) {
+            toast.error("Location is not supported in this browser.");
+            followMe.set(false);
+            return;
+        }
+        let centerOnNextPosition = true;
         map.eachLayer((layer: any) => {
             if (layer.permanentGeoJSON) map.removeLayer(layer);
         });
 
+                if (centerOnNextPosition) {
+                    map.setView([lat, lng], Math.max(map.getZoom(), 15));
+                    centerOnNextPosition = false;
+                }
         if ($permanentOverlay === null) return;
 
         try {
@@ -544,7 +556,10 @@ export const Map = ({ className }: { className?: string }) => {
                 interactive: false,
 
                 // @ts-expect-error Type hints force a Layer to be returned, but Leaflet accepts null as well
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10],
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        interactive: false,
                 pointToLayer(geoJsonPoint, latlng) {
                     return null;
                 },

@@ -162,9 +162,7 @@ export async function downloadPack(
         cache: "no-store",
     });
     if (!manifestResponse.ok)
-        throw new Error(
-            "Regional data is not available on this site yet. You can import a prepared data file.",
-        );
+        throw new Error("Switzerland data is not available on this site yet.");
     const manifest = await manifestResponse.json();
     if (
         manifest.schemaVersion !== 1 ||

@@ -87,7 +87,7 @@ export const questionModified = (..._: any[]) => {
 
 export const leafletMapContext = atom<Map | null>(null);
 
-export const defaultUnit = persistentAtom<Units>("defaultUnit", "miles");
+export const defaultUnit = persistentAtom<Units>("defaultUnit", "kilometers");
 export const hiderMode = persistentAtom<
     | false
     | {
@@ -330,7 +330,7 @@ export const planningModeEnabled = persistentAtom<boolean>(
         decode: JSON.parse,
     },
 );
-export const autoZoom = persistentAtom<boolean>("autoZoom", true, {
+export const autoZoom = persistentAtom<boolean>("autoZoom", false, {
     encode: JSON.stringify,
     decode: JSON.parse,
 });
@@ -355,6 +355,7 @@ export const followMe = persistentAtom<boolean>("followMe", false, {
 export const defaultCustomQuestions = persistentAtom<boolean>(
     "defaultCustomQuestions",
     false,
+export const locationCenterRequest = atom(0);
     {
         encode: JSON.stringify,
         decode: JSON.parse,

@@ -1,7 +1,7 @@
 # Offline game data
 
 This fork uses static regional data files and browser storage. Friends open the
-website and choose **Options → Offline game data → Download regional data** once
+website and choose **Options → Download Switzerland Data** once
 on each phone. No application server is required. Background maps keep their
 existing providers.
 
@@ -57,10 +57,6 @@ The app requests persistent storage, but a browser may still remove website data
 Check the saved-data status and test the intended phone in airplane mode before
 a game. Background map tiles and external sharing/import services need their
 usual network access.
-
-The import control supports older self-contained `.json`/`.json.gz` packs. A
-sharded location file alone is insufficient for import; use the website's Download
-button to save its companion boundary files too.
 
 ## Coverage and behaviour
 

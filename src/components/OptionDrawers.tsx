@@ -32,6 +32,7 @@ import {
     includeDefaultStations,
     leafletMapContext,
     mapGeoJSON,
+    locationCenterRequest,
     mapGeoLocation,
     overpassCustomHost,
     overpassHost,
@@ -357,7 +358,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         <div
             data-map-actions
             className={cn(
-                "flex justify-end gap-2 max-[412px]:!mb-4 max-[640px]:overflow-x-auto max-[640px]:w-[85vw] max-[640px]:justify-start max-[640px]:[&>button]:flex-shrink-0 max-[640px]:[&>div]:flex-shrink-0 max-[640px]:pb-1",
+                "relative flex justify-end gap-2 max-[412px]:!mb-4 max-[640px]:overflow-x-auto max-[640px]:w-[85vw] max-[640px]:justify-start max-[640px]:[&>button]:flex-shrink-0 max-[640px]:[&>div]:flex-shrink-0 max-[640px]:pb-1",
                 className,
             )}
         >
@@ -474,6 +475,41 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
             </Button>
             <Drawer open={isOptionsOpen} onOpenChange={setOptionsOpen}>
                 <DrawerTrigger className="w-24" asChild>
+            <Button
+                className="absolute bottom-full right-0 mb-2 h-11 w-11 bg-white text-blue-600 hover:bg-slate-100 shadow-md border border-slate-200"
+                size="icon"
+                aria-label="Show my location"
+                aria-pressed={$followMe}
+                title="Show my location"
+                onClick={() => {
+                    followMe.set(true);
+                    locationCenterRequest.set(locationCenterRequest.get() + 1);
+                }}
+            >
+                <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    className="!size-6"
+                >
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="8"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        opacity={$followMe ? 1 : 0.4}
+                    />
+                    <circle cx="12" cy="12" r="4" fill="currentColor" />
+                    <path
+                        d="M12 1v3m0 16v3M1 12h3m16 0h3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                    />
+                </svg>
+            </Button>
                     <Button
                         className="w-24 shadow-md"
                         data-tutorial-id="option-questions-button"
@@ -756,17 +792,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                     checked={$autoZoom}
                                     onCheckedChange={() =>
                                         autoZoom.set(!$autoZoom)
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Follow Me (GPS)?
-                                </label>
-                                <Checkbox
-                                    checked={$followMe}
-                                    onCheckedChange={() =>
-                                        followMe.set(!$followMe)
                                     }
                                 />
                             </div>
