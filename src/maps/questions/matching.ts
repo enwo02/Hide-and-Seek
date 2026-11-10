@@ -1,3 +1,7 @@
+import {
+    questionLoadingSignal,
+    registerQuestionCache,
+} from "@/lib/question-loading";
 import * as turf from "@turf/turf";
 import type {
     Feature,
@@ -273,6 +277,7 @@ export const adjustPerMatching = async (
 };
 
 export const hiderifyMatching = async (question: MatchingQuestion) => {
+    const signal = questionLoadingSignal();
     const $hiderMode = hiderMode.get();
     if ($hiderMode === false) {
         return question;
@@ -296,6 +301,7 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
         const questionNearest = await nearestToQuestion(
             question as HomeGameMatchingQuestions,
         );
+        signal?.throwIfAborted();
         const hiderNearest = await nearestToQuestion({
             lat: $hiderMode.latitude,
             lng: $hiderMode.longitude,
@@ -394,6 +400,7 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
     try {
         feature = holedMask((await adjustPerMatching(question, $mapGeoJSON))!);
     } catch {
+        signal?.throwIfAborted();
         try {
             feature = await adjustPerMatching(question, {
                 type: "FeatureCollection",
@@ -428,3 +435,5 @@ export const matchingPlanningPolygon = async (question: MatchingQuestion) => {
         return false;
     }
 };
+
+registerQuestionCache(determineMatchingBoundary.cache);

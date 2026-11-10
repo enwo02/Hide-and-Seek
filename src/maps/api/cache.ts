@@ -28,6 +28,7 @@ export const cacheFetch = async (
     cacheType: CacheType = CacheType.CACHE,
     signal?: AbortSignal,
 ) => {
+    signal?.throwIfAborted();
     let cache: Cache | undefined;
     try {
         cache = await determineCache(cacheType);
@@ -35,6 +36,7 @@ export const cacheFetch = async (
         // Storage restrictions should not prevent online play.
     }
 
+    signal?.throwIfAborted();
     const cachedResponse = await cache?.match(url);
     if (cachedResponse) {
         if (!cachedResponse.ok) {
@@ -46,7 +48,7 @@ export const cacheFetch = async (
 
     const inflightKey = `${cacheType}:${url}`;
     const existingFetch = inFlightFetches.get(inflightKey);
-    if (existingFetch) {
+    if (existingFetch && !signal) {
         const response = await existingFetch;
         return response.clone();
     }
@@ -74,7 +76,7 @@ export const cacheFetch = async (
     };
 
     const fetchPromise = fetchAndMaybeCache();
-    inFlightFetches.set(inflightKey, fetchPromise);
+    if (!signal) inFlightFetches.set(inflightKey, fetchPromise);
 
     try {
         const response = await (loadingText
@@ -85,7 +87,7 @@ export const cacheFetch = async (
 
         return response.clone();
     } finally {
-        inFlightFetches.delete(inflightKey);
+        if (!signal) inFlightFetches.delete(inflightKey);
     }
 };
 

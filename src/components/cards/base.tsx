@@ -31,6 +31,7 @@ import {
     SidebarMenu,
 } from "@/components/ui/sidebar-l";
 import { isLoading, questions } from "@/lib/context";
+import { cancelQuestionLoading } from "@/lib/question-loading";
 import { cn } from "@/lib/utils";
 
 export const QuestionCard = ({
@@ -197,7 +198,7 @@ export const QuestionCard = ({
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        disabled={$isLoading}
+                                        aria-label="Delete question"
                                     >
                                         <VscTrash />
                                     </Button>
@@ -219,6 +220,7 @@ export const QuestionCard = ({
                                         </AlertDialogCancel>
                                         <AlertDialogAction
                                             onClick={() => {
+                                                cancelQuestionLoading();
                                                 questions.set([]);
                                             }}
                                         >
@@ -226,12 +228,15 @@ export const QuestionCard = ({
                                         </AlertDialogAction>
                                         <AlertDialogAction
                                             onClick={() => {
+                                                cancelQuestionLoading();
                                                 questions.set(
-                                                    $questions.filter(
-                                                        (q) =>
-                                                            q.key !==
-                                                            questionKey,
-                                                    ),
+                                                    questions
+                                                        .get()
+                                                        .filter(
+                                                            (q) =>
+                                                                q.key !==
+                                                                questionKey,
+                                                        ),
                                                 );
                                             }}
                                             className="mb-2 sm:mb-0"

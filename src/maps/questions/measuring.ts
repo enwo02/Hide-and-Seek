@@ -1,3 +1,7 @@
+import {
+    questionLoadingSignal,
+    registerQuestionCache,
+} from "@/lib/question-loading";
 import * as turf from "@turf/turf";
 import type { Feature, MultiPolygon } from "geojson";
 import _ from "lodash";
@@ -346,6 +350,7 @@ export const adjustPerMeasuring = async (
 };
 
 export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
+    const signal = questionLoadingSignal();
     const $hiderMode = hiderMode.get();
     if ($hiderMode === false) {
         return question;
@@ -369,6 +374,7 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
         const questionNearest = await nearestToQuestion(
             question as HomeGameMeasuringQuestions,
         );
+        signal?.throwIfAborted();
         const hiderNearest = await nearestToQuestion({
             lat: $hiderMode.latitude,
             lng: $hiderMode.longitude,
@@ -475,3 +481,6 @@ export const measuringPlanningPolygon = async (question: MeasuringQuestion) => {
         return false;
     }
 };
+
+registerQuestionCache(findAdminZoneInfo.cache);
+registerQuestionCache(bufferedDeterminer.cache);

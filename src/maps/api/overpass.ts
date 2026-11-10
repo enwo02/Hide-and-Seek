@@ -12,6 +12,7 @@ import {
     overpassHost,
     polyGeoJSON,
 } from "@/lib/context";
+import { questionLoadingSignal } from "@/lib/question-loading";
 import { safeUnion } from "@/maps/geo-utils";
 
 import { cacheFetch, determineCache } from "./cache";
@@ -47,6 +48,8 @@ export const getOverpassData = async (
     loadingText?: string,
     cacheType: CacheType = CacheType.CACHE,
 ) => {
+    const signal = questionLoadingSignal();
+    signal?.throwIfAborted();
     const encodedQuery = encodeURIComponent(query);
     const allHostUrls = Object.values(OVERPASS_HOSTS);
     const selectedHost = overpassHost.get();
@@ -67,6 +70,7 @@ export const getOverpassData = async (
                     `${host}?data=${encodedQuery}`,
                     undefined,
                     cacheType,
+                    signal,
                 );
                 if (!response.ok)
                     throw new Error(`Server returned ${response.status}`);
@@ -80,6 +84,7 @@ export const getOverpassData = async (
                 }
                 return data;
             } catch (error) {
+                signal?.throwIfAborted();
                 lastError = error;
             }
         }
@@ -87,12 +92,19 @@ export const getOverpassData = async (
             `Game data unavailable. Download a regional pack in Options, or retry. ${lastError}`,
         );
     };
-    return loadingText
-        ? toast.promise(operation(), {
-              pending: loadingText,
-              error: "Could not load game data. Try downloading a regional pack in Options.",
-          })
-        : operation();
+    const toastId = loadingText ? toast.loading(loadingText) : undefined;
+    try {
+        return await operation();
+    } catch (error) {
+        if (!signal?.aborted && loadingText) {
+            toast.error(
+                "Could not load game data. Try downloading a regional pack in Options.",
+            );
+        }
+        throw error;
+    } finally {
+        if (toastId !== undefined) toast.dismiss(toastId);
+    }
 };
 
 export const determineGeoJSON = async (

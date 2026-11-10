@@ -127,13 +127,16 @@ export async function applyQuestionsToMapGeoData(
         polygon: FeatureCollection | Feature,
         question: any,
     ) => void,
+    signal?: AbortSignal,
 ): Promise<any> {
     for (const question of questions) {
+        signal?.throwIfAborted();
         if (planningModeCallback) {
             const planningPolygon = await determinePlanningPolygon(
                 question,
                 planningModeEnabled,
             );
+            signal?.throwIfAborted();
             if (planningPolygon) {
                 planningModeCallback(planningPolygon, question);
             }
@@ -144,6 +147,7 @@ export async function applyQuestionsToMapGeoData(
 
         mapGeoData = await adjustMapGeoDataForQuestion(question, mapGeoData);
 
+        signal?.throwIfAborted();
         if (mapGeoData.type !== "FeatureCollection") {
             mapGeoData = {
                 type: "FeatureCollection",

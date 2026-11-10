@@ -31,6 +31,10 @@ import {
     thunderforestApiKey,
     triggerLocalRefresh,
 } from "@/lib/context";
+import {
+    beginQuestionLoading,
+    finishQuestionLoading,
+} from "@/lib/question-loading";
 import { cn } from "@/lib/utils";
 import { enableInterruptibleMapZoom } from "@/lib/interruptible-map-zoom";
 import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
@@ -172,7 +176,16 @@ export const Map = ({ className }: { className?: string }) => {
             return;
         }
 
-        isLoading.set(true);
+        const controller = beginQuestionLoading();
+        const { signal } = controller;
+        signal.addEventListener(
+            "abort",
+            () => {
+                refreshPending.current = false;
+            },
+            { once: true },
+        );
+        const loadingQuestions = structuredClone($questions);
 
         try {
             if ($questions.length === 0) {
@@ -199,11 +212,21 @@ export const Map = ({ className }: { className?: string }) => {
                 }
             }
 
+            signal.throwIfAborted();
+
             if ($hiderMode !== false) {
-                for (const question of $questions) {
+                for (const question of loadingQuestions) {
+                    signal.throwIfAborted();
                     await hiderifyQuestion(question);
+                    signal.throwIfAborted();
                 }
 
+                for (const question of loadingQuestions) {
+                    const current = questions
+                        .get()
+                        .find((q) => q.key === question.key);
+                    if (current) current.data = question.data;
+                }
                 triggerLocalRefresh.set(Math.random()); // Refresh the question sidebar with new information but not this map
             }
 
@@ -214,17 +237,20 @@ export const Map = ({ className }: { className?: string }) => {
             });
 
             mapGeoData = await applyQuestionsToMapGeoData(
-                $questions,
+                loadingQuestions,
                 mapGeoData,
                 planningModeEnabled.get(),
                 (geoJSONObj, question) => {
+                    signal.throwIfAborted();
                     const geoJSONPlane = L.geoJSON(geoJSONObj);
                     // @ts-expect-error This is a check such that only this type of layer is removed
                     geoJSONPlane.questionKey = question.key;
                     geoJSONPlane.addTo(map);
                 },
+                signal,
             );
 
+            signal.throwIfAborted();
             mapGeoData = {
                 type: "FeatureCollection",
                 features: [holedMask(mapGeoData!)!],
@@ -258,14 +284,13 @@ export const Map = ({ className }: { className?: string }) => {
                 }
             }
         } catch (error) {
+            if (signal.aborted) return;
             console.log(error);
-
-            isLoading.set(false);
             if (document.querySelectorAll(".Toastify__toast").length === 0) {
                 return toast.error("No solutions found / error occurred");
             }
         } finally {
-            isLoading.set(false);
+            finishQuestionLoading(controller);
         }
     };
 

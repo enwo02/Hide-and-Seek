@@ -19,6 +19,8 @@ import {
     triggerLocalRefresh,
 } from "@/lib/context";
 
+import { cancelQuestionLoading } from "@/lib/question-loading";
+
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import {
     DirectionQuestionComponent,
@@ -105,6 +107,15 @@ export const QuestionSidebar = () => {
             <SidebarGroup>
                 <SidebarGroupContent>
                     <SidebarMenu data-tutorial-id="add-questions-buttons">
+                        {$isLoading && (
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    onClick={cancelQuestionLoading}
+                                >
+                                    Cancel loading
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        )}
                         <SidebarMenuItem>
                             <AddQuestionDialog>
                                 <SidebarMenuButton disabled={$isLoading}>
