@@ -32,6 +32,7 @@ import {
     triggerLocalRefresh,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
+import { enableInterruptibleMapZoom } from "@/lib/interruptible-map-zoom";
 import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
 import { clearCache, determineMapBoundaries } from "@/maps/api";
@@ -149,6 +150,10 @@ export const Map = ({ className }: { className?: string }) => {
     const $locationCenterRequest = useStore(locationCenterRequest);
     const $permanentOverlay = useStore(permanentOverlay);
     const map = useStore(leafletMapContext);
+
+    useEffect(() => {
+        if (map) return enableInterruptibleMapZoom(map);
+    }, [map]);
 
     const followMeMarkerRef = useMemo(
         () => ({ current: null as L.Marker | null }),
@@ -272,8 +277,6 @@ export const Map = ({ className }: { className?: string }) => {
                 touchZoom={true}
                 // Preserve the exact pinch scale instead of snapping on release.
                 zoomSnap={0}
-                // Leaflet blocks new drags during its post-pinch zoom animation.
-                zoomAnimation={false}
                 className={cn("w-[500px] h-[500px]", className)}
                 ref={leafletMapContext.set}
                 // @ts-expect-error Typing doesn't update from react-contextmenu
