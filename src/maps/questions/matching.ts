@@ -6,6 +6,7 @@ import * as turf from "@turf/turf";
 import type {
     Feature,
     FeatureCollection,
+    LineString,
     MultiPolygon,
     Point,
     Polygon,
@@ -424,6 +425,42 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
 
 export const matchingPlanningPolygon = async (question: MatchingQuestion) => {
     try {
+        const places = await findMatchingPlaces(question);
+        if (places) {
+            const zones = geoSpatialVoronoi(places);
+            const point = turf.point([question.lng, question.lat]);
+            const selected = zones.features.find((zone) =>
+                turf.booleanPointInPolygon(point, zone),
+            );
+            // Adjacent polygons share edges. Drawing both copies with independent
+            // dash phases fills the gaps, making dashed borders look solid.
+            const edges = new Map<string, Feature<LineString>>();
+            for (const zone of zones.features) {
+                turf.segmentEach(zone, (segment) => {
+                    const endpoints = segment.geometry.coordinates.map(
+                        (coord) =>
+                            coord.map((value) => value.toFixed(7)).join(","),
+                    );
+                    const key = endpoints.sort().join("|");
+                    const existing = edges.get(key);
+                    if (!existing || zone === selected) {
+                        segment.properties = {
+                            matchingAlternative: zone !== selected,
+                        };
+                        edges.set(key, segment);
+                    }
+                });
+            }
+            // Keep the selected zone solid, including all its shared edges.
+            return turf.featureCollection(
+                [...edges.values()].sort(
+                    (a, b) =>
+                        Number(b.properties?.matchingAlternative) -
+                        Number(a.properties?.matchingAlternative),
+                ),
+            );
+        }
+
         const boundary = await determineMatchingBoundary(question);
 
         if (boundary === false) {

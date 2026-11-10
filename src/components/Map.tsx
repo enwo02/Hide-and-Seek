@@ -242,7 +242,12 @@ export const Map = ({ className }: { className?: string }) => {
                 planningModeEnabled.get(),
                 (geoJSONObj, question) => {
                     signal.throwIfAborted();
-                    const geoJSONPlane = L.geoJSON(geoJSONObj);
+                    const geoJSONPlane = L.geoJSON(geoJSONObj, {
+                        style: (feature) =>
+                            feature?.properties?.matchingAlternative
+                                ? { dashArray: "6 6" }
+                                : {},
+                    });
                     // @ts-expect-error This is a check such that only this type of layer is removed
                     geoJSONPlane.questionKey = question.key;
                     geoJSONPlane.addTo(map);

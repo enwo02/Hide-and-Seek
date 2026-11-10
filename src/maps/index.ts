@@ -65,7 +65,11 @@ export const determinePlanningPolygon = async (
     question: Question,
     planningModeEnabled: boolean,
 ) => {
-    if (planningModeEnabled && question.data.drag && !question.data.hidden) {
+    if (
+        (planningModeEnabled || question.id === "matching") &&
+        question.data.drag &&
+        !question.data.hidden
+    ) {
         switch (question.id) {
             case "direction":
                 return directionPlanningPolygon(question.data);
