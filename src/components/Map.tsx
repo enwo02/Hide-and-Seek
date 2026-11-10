@@ -19,8 +19,8 @@ import {
     hiderMode,
     isLoading,
     leafletMapContext,
-    mapDataSetupPending,
     locationCenterRequest,
+    mapDataSetupPending,
     mapGeoJSON,
     mapGeoLocation,
     permanentOverlay,
@@ -146,6 +146,7 @@ export const Map = ({ className }: { className?: string }) => {
     }, [dataSetup]);
 
     const $followMe = useStore(followMe);
+    const $locationCenterRequest = useStore(locationCenterRequest);
     const $permanentOverlay = useStore(permanentOverlay);
     const map = useStore(leafletMapContext);
 
@@ -181,7 +182,6 @@ export const Map = ({ className }: { className?: string }) => {
                     mapGeoData = polyGeoData;
                     mapGeoJSON.set(polyGeoData);
                 } else {
-    const $locationCenterRequest = useStore(locationCenterRequest);
                     await toast.promise(
                         determineMapBoundaries().then((x) => {
                             mapGeoJSON.set(x);
@@ -496,10 +496,20 @@ export const Map = ({ className }: { className?: string }) => {
             return;
         }
 
+        if (!navigator.geolocation) {
+            toast.error("Location is not supported in this browser.");
+            followMe.set(false);
+            return;
+        }
+        let centerOnNextPosition = true;
         geoWatchIdRef.current = navigator.geolocation.watchPosition(
             (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
+                if (centerOnNextPosition) {
+                    map.setView([lat, lng], Math.max(map.getZoom(), 15));
+                    centerOnNextPosition = false;
+                }
                 if (followMeMarkerRef.current) {
                     followMeMarkerRef.current.setLatLng([lat, lng]);
                 } else {
@@ -507,7 +517,10 @@ export const Map = ({ className }: { className?: string }) => {
                         icon: L.divIcon({
                             html: `<div class="text-blue-700 bg-white rounded-full border-2 border-blue-700 shadow w-5 h-5 flex items-center justify-center"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#2A81CB" opacity="0.5"/><circle cx="8" cy="8" r="3" fill="#2A81CB"/></svg></div>`,
                             className: "",
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10],
                         }),
+                        interactive: false,
                         zIndexOffset: 1000,
                     });
                     marker.addTo(map);
@@ -535,20 +548,10 @@ export const Map = ({ className }: { className?: string }) => {
     useEffect(() => {
         if (!map) return;
 
-        if (!navigator.geolocation) {
-            toast.error("Location is not supported in this browser.");
-            followMe.set(false);
-            return;
-        }
-        let centerOnNextPosition = true;
         map.eachLayer((layer: any) => {
             if (layer.permanentGeoJSON) map.removeLayer(layer);
         });
 
-                if (centerOnNextPosition) {
-                    map.setView([lat, lng], Math.max(map.getZoom(), 15));
-                    centerOnNextPosition = false;
-                }
         if ($permanentOverlay === null) return;
 
         try {
@@ -556,10 +559,7 @@ export const Map = ({ className }: { className?: string }) => {
                 interactive: false,
 
                 // @ts-expect-error Type hints force a Layer to be returned, but Leaflet accepts null as well
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10],
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        interactive: false,
                 pointToLayer(geoJsonPoint, latlng) {
                     return null;
                 },

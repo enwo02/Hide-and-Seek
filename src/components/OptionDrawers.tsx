@@ -31,8 +31,8 @@ import {
     hidingZone,
     includeDefaultStations,
     leafletMapContext,
-    mapGeoJSON,
     locationCenterRequest,
+    mapGeoJSON,
     mapGeoLocation,
     overpassCustomHost,
     overpassHost,
@@ -473,8 +473,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
             >
                 Tutorial
             </Button>
-            <Drawer open={isOptionsOpen} onOpenChange={setOptionsOpen}>
-                <DrawerTrigger className="w-24" asChild>
             <Button
                 className="absolute bottom-full right-0 mb-2 h-11 w-11 bg-white text-blue-600 hover:bg-slate-100 shadow-md border border-slate-200"
                 size="icon"
@@ -510,6 +508,8 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                     />
                 </svg>
             </Button>
+            <Drawer open={isOptionsOpen} onOpenChange={setOptionsOpen}>
+                <DrawerTrigger className="w-24" asChild>
                     <Button
                         className="w-24 shadow-md"
                         data-tutorial-id="option-questions-button"

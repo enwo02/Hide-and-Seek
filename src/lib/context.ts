@@ -348,6 +348,7 @@ export const thunderforestApiKey = persistentAtom<string>(
         decode: (value: string) => value,
     },
 );
+export const locationCenterRequest = atom(0);
 export const followMe = persistentAtom<boolean>("followMe", false, {
     encode: JSON.stringify,
     decode: JSON.parse,
@@ -355,7 +356,6 @@ export const followMe = persistentAtom<boolean>("followMe", false, {
 export const defaultCustomQuestions = persistentAtom<boolean>(
     "defaultCustomQuestions",
     false,
-export const locationCenterRequest = atom(0);
     {
         encode: JSON.stringify,
         decode: JSON.parse,
