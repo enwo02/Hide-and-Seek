@@ -25,6 +25,7 @@ import {
     disabledStations,
     displayHidingZonesOptions,
     followMe,
+    geopsApiKey,
     hiderMode,
     hidingRadius,
     hidingRadiusUnits,
@@ -90,6 +91,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     const $hidingZone = useStore(hidingZone);
     const $planningMode = useStore(planningModeEnabled);
     const $baseTileLayer = useStore(baseTileLayer);
+    const $geopsApiKey = useStore(geopsApiKey);
     const $thunderforestApiKey = useStore(thunderforestApiKey);
     const $pastebinApiKey = useStore(pastebinApiKey);
     const $alwaysUsePastebin = useStore(alwaysUsePastebin);
@@ -587,6 +589,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                 trigger="Base map style"
                                 options={{
                                     voyager: "CARTO Voyager",
+                                    sbb: "SBB / geOps (access key required)",
                                     light: "CARTO Light",
                                     dark: "CARTO Dark",
                                     transport: "Thunderforest Transport",
@@ -599,6 +602,41 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                     baseTileLayer.set(v as any)
                                 }
                             />
+                            {$baseTileLayer === "sbb" && (
+                                <div className="flex flex-col items-center gap-2">
+                                    <Label htmlFor="geopsApiKey">
+                                        geOps map access key
+                                    </Label>
+                                    <Input
+                                        type="password"
+                                        value={$geopsApiKey}
+                                        id="geopsApiKey"
+                                        onChange={(e) =>
+                                            geopsApiKey.set(e.target.value)
+                                        }
+                                        placeholder="Enter your geOps map key"
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                    />
+                                    <p className="text-xs text-gray-500">
+                                        Public transport background used by
+                                        Trafimage. Request your own map key and
+                                        usage terms from{" "}
+                                        <a
+                                            href="https://developer.geops.io/apis/maps"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-500 cursor-pointer"
+                                        >
+                                            geOps
+                                        </a>
+                                        . The key is saved in this browser and
+                                        sent to geOps to load maps.
+                                        {!$geopsApiKey.trim() &&
+                                            " Until a key is added, CARTO Voyager is shown."}
+                                    </p>
+                                </div>
+                            )}
                             <div className="flex flex-col items-center gap-2">
                                 <Label>Thunderforest API Key</Label>
                                 <Input

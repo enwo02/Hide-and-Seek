@@ -166,3 +166,23 @@ A great deal of appreciation goes out to these individuals who have helped to cr
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
+
+## SBB / geOps background (experimental)
+
+In Settings → Base map style, select **SBB / geOps (access key required)**,
+then enter your own geOps map key. All existing backgrounds remain available;
+CARTO Voyager remains the default and is also shown if the key is missing or a
+tile fails to load.
+
+This uses the `base_bright_v2` raster background from the provider behind
+[Trafimage](https://github.com/geops/trafimage-maps), keeping the existing
+Leaflet drawing tools and game overlays. It does not embed the entire Trafimage
+application. Request raster map access and confirm production usage terms with
+[geOps](https://developer.geops.io/apis/maps) (`support@geops.io`). The key is
+stored in the current browser and accompanies map requests; use a browser-safe
+key approved for your domain. No demonstration credentials are bundled.
+
+Live rendering, zoom coverage, attribution requirements, and printing must be
+verified with the issued key before treating this experimental option as ready
+for production. The unauthenticated geOps tile request returns HTTP 401.
+Background maps still require an internet connection.

@@ -16,6 +16,7 @@ import {
     autoZoom,
     baseTileLayer,
     followMe,
+    geopsApiKey,
     hiderMode,
     isLoading,
     leafletMapContext,
@@ -48,8 +49,41 @@ import { MapDataSetup } from "./MapDataSetup";
 import { MapPrint } from "./MapPrint";
 import { PolygonDraw } from "./PolygonDraw";
 
-const getTileLayer = (tileLayer: string, thunderforestApiKey: string) => {
+// Keep the game in Leaflet; only the background comes from geOps/Trafimage.
+const SbbTileLayer = ({ apiKey }: { apiKey: string }) => {
+    const [failed, setFailed] = useState(false);
+    if (!apiKey || failed) return getTileLayer("voyager", "", "");
+
+    return (
+        <TileLayer
+            key="sbb-geops"
+            url={`https://maps.geops.io/styles/base_bright_v2/{z}/{x}/{y}.png?key=${encodeURIComponent(apiKey)}`}
+            attribution='Geodaten &copy; SBB/CFF/FFS; &copy; <a href="https://geops.com/">geOps</a>; &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; &copy; OpenMapTiles; &copy; imagico'
+            minZoom={2}
+            maxNativeZoom={18}
+            maxZoom={20}
+            noWrap
+            eventHandlers={{
+                tileerror: () => {
+                    setFailed(true);
+                    toast.error(
+                        "SBB map could not load. Check your geOps key and map access in Settings. Showing CARTO Voyager.",
+                        { toastId: "sbb-map-error" },
+                    );
+                },
+            }}
+        />
+    );
+};
+
+const getTileLayer = (
+    tileLayer: string,
+    thunderforestApiKey: string,
+    geopsKey: string,
+) => {
     switch (tileLayer) {
+        case "sbb":
+            return <SbbTileLayer key={geopsKey} apiKey={geopsKey.trim()} />;
         case "light":
             return (
                 <TileLayer
@@ -130,6 +164,7 @@ export const Map = ({ className }: { className?: string }) => {
     const $questions = useStore(questions);
     const $baseTileLayer = useStore(baseTileLayer);
     const $thunderforestApiKey = useStore(thunderforestApiKey);
+    const $geopsApiKey = useStore(geopsApiKey);
     const $hiderMode = useStore(hiderMode);
     const $isLoading = useStore(isLoading);
     const refreshPending = useRef(false);
@@ -438,7 +473,11 @@ export const Map = ({ className }: { className?: string }) => {
                     },
                 ]}
             >
-                {getTileLayer($baseTileLayer, $thunderforestApiKey)}
+                {getTileLayer(
+                    $baseTileLayer,
+                    $thunderforestApiKey,
+                    $geopsApiKey,
+                )}
                 <DraggableMarkers />
                 <div className="leaflet-top leaflet-right">
                     <div className="leaflet-control flex-col flex gap-2">
@@ -461,7 +500,7 @@ export const Map = ({ className }: { className?: string }) => {
                 />
             </MapContainer>
         ),
-        [map, $baseTileLayer, $thunderforestApiKey],
+        [map, $baseTileLayer, $thunderforestApiKey, $geopsApiKey],
     );
 
     useEffect(() => {
