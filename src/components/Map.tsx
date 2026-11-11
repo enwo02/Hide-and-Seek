@@ -6,7 +6,7 @@ import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import * as L from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, ScaleControl, TileLayer } from "react-leaflet";
+import { MapContainer, ScaleControl, TileLayer, useMap } from "react-leaflet";
 import { toast } from "react-toastify";
 
 import {
@@ -42,6 +42,7 @@ import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
 import { clearCache, determineMapBoundaries } from "@/maps/api";
 import { getLocalPack } from "@/maps/api/local-data";
+import swissVectorCoverage from "@/maps/data/swiss-vector-coverage.json";
 
 import { DraggableMarkers } from "./DraggableMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
@@ -76,12 +77,92 @@ const SbbTileLayer = ({ apiKey }: { apiKey: string }) => {
     );
 };
 
+const SwissVectorLayer = () => {
+    const map = useMap();
+    const [ready, setReady] = useState(false);
+
+    useEffect(() => {
+        let disposed = false;
+        let cleanup: (() => void) | undefined;
+        let failed = false;
+        const archiveBounds = L.latLngBounds([45.81, 5.94], [47.81, 10.5]);
+        const coverage = turf.polygon(swissVectorCoverage.coordinates);
+
+        void import("./SwissVectorBasemap")
+            .then(({ createSwissVectorBasemap }) => {
+                if (disposed) return;
+                const layer = createSwissVectorBasemap();
+                const showLayer = () => {
+                    const center = map.getCenter();
+                    if (
+                        failed ||
+                        map.getZoom() < 8 ||
+                        !archiveBounds.contains(center) ||
+                        !turf.booleanPointInPolygon(
+                            [center.lng, center.lat],
+                            coverage,
+                        )
+                    ) {
+                        layer.remove();
+                        setReady(false);
+                        return;
+                    }
+                    if (map.hasLayer(layer)) return;
+                    try {
+                        layer.addTo(map);
+                        const renderer = layer.getMaplibreMap();
+                        renderer.once("load", () => {
+                            if (!disposed && map.hasLayer(layer))
+                                setReady(true);
+                        });
+                        renderer.once("error", (event) => {
+                            if (!disposed && map.hasLayer(layer)) {
+                                console.warn(
+                                    "Swiss vector map failed to load",
+                                    event.error,
+                                );
+                                failed = true;
+                                layer.remove();
+                                setReady(false);
+                            }
+                        });
+                    } catch (error) {
+                        console.warn(
+                            "Swiss vector map failed to initialize",
+                            error,
+                        );
+                        failed = true;
+                        layer.remove();
+                    }
+                };
+                cleanup = () => {
+                    map.off("moveend", showLayer);
+                    layer.remove();
+                };
+                map.on("moveend", showLayer);
+                showLayer();
+            })
+            .catch(() => {
+                if (!disposed) setReady(false);
+            });
+
+        return () => {
+            disposed = true;
+            cleanup?.();
+        };
+    }, [map]);
+
+    return ready ? null : getTileLayer("voyager", "", "");
+};
+
 const getTileLayer = (
     tileLayer: string,
     thunderforestApiKey: string,
     geopsKey: string,
 ) => {
     switch (tileLayer) {
+        case "swiss-vector":
+            return <SwissVectorLayer />;
         case "sbb":
             return <SbbTileLayer key={geopsKey} apiKey={geopsKey.trim()} />;
         case "light":

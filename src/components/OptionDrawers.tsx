@@ -589,6 +589,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                 trigger="Base map style"
                                 options={{
                                     voyager: "CARTO Voyager",
+                                    "swiss-vector": "Swiss transit (vector)",
                                     sbb: "SBB / geOps (access key required)",
                                     light: "CARTO Light",
                                     dark: "CARTO Dark",

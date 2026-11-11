@@ -345,7 +345,8 @@ export const baseTileLayer = persistentAtom<
     | "neighbourhood"
     | "osmcarto"
     | "sbb"
->("baseTileLayer", "voyager");
+    | "swiss-vector"
+>("baseTileLayer", "swiss-vector");
 export const geopsApiKey = persistentAtom<string>("geopsApiKey", "");
 export const thunderforestApiKey = persistentAtom<string>(
     "thunderforestApiKey",

@@ -23,6 +23,12 @@ jobs:
               uses: actions/checkout@v4
             - name: Configure GitHub Pages
               uses: actions/configure-pages@v5
+            - name: Download Swiss vector basemap
+              run: |
+                  curl --fail --location --retry 3 \
+                    https://github.com/enwo02/Hide-and-Seek/releases/download/basemap-ch-20261110/switzerland-20261110.pmtiles \
+                    --output public/switzerland-20261110.pmtiles
+                  echo "80ad86ede1862647533ff8f85d5a37beec886935954341a697f5558003ace35f  public/switzerland-20261110.pmtiles" | sha256sum --check
             - name: Install, build, and upload your site
               uses: withastro/action@v3
               with:

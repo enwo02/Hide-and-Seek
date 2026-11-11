@@ -186,3 +186,16 @@ Live rendering, zoom coverage, attribution requirements, and printing must be
 verified with the issued key before treating this experimental option as ready
 for production. The unauthenticated geOps tile request returns HTTP 401.
 Background maps still require an internet connection.
+
+## Swiss transit basemap
+
+**Swiss transit (vector)** is the default under Settings → Base map style.
+It covers Switzerland with an SBB-inspired style based on Protomaps and
+OpenStreetMap data. CARTO Voyager is used outside the covered region and
+below zoom 8. No geOps key is required.
+
+The Pages build downloads the pinned PMTiles archive from the project's
+GitHub release. For local development, download
+`switzerland-20261110.pmtiles` from the [basemap release](https://github.com/enwo02/Hide-and-Seek/releases/tag/basemap-ch-20261110)
+into `public/`. Static hosting must support HTTP byte-range requests for
+the archive. Fonts and sprites are served by Protomaps.

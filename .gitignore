@@ -28,3 +28,5 @@ pnpm-debug.log*
 public/runtime/
 __pycache__/
 .venv-game-data/
+
+/public/switzerland-*.pmtiles
