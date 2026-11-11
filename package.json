@@ -12,7 +12,7 @@
     },
     "dependencies": {
         "@arcgis/core": "^4.32.10",
-        "@astrojs/partytown": "^2.1.4",
+        "@astrojs/partytown": "^2.1.9",
         "@astrojs/react": "4.2.0",
         "@astrojs/tailwind": "^5.1.5",
         "@maplibre/maplibre-gl-leaflet": "^0.1.4",
