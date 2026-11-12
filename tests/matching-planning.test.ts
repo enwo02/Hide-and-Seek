@@ -5,9 +5,9 @@ import { expect, it, vi } from "vitest";
 vi.mock("@/lib/context", () => ({
     isLoading: atom(false),
     hiderMode: atom(false),
-    mapGeoJSON: atom(null),
-    mapGeoLocation: atom(null),
-    polyGeoJSON: atom(null),
+    activeMapBoundary: atom(null),
+    activeMapLocation: atom(null),
+    activePolygon: atom(null),
 }));
 vi.mock("@/maps/api", () => ({}));
 vi.mock("@/maps/geo-utils", () => ({

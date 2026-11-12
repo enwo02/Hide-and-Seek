@@ -26,6 +26,9 @@ import {
 import { useTutorialStep } from "@/hooks/use-tutorial-step";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
+    activeAdditionalLocations,
+    activeMapLocation,
+    activePolygon,
     additionalMapGeoLocations,
     isLoading,
     mapGeoJSON,
@@ -33,6 +36,13 @@ import {
     polyGeoJSON,
     questions,
 } from "@/lib/context";
+import {
+    areaPending,
+    connection,
+    gameSession,
+    selectGameArea,
+    sharedArea,
+} from "@/lib/game-client";
 import { cn } from "@/lib/utils";
 import {
     CacheType,
@@ -60,10 +70,14 @@ export const PlacePicker = ({
     language?: string;
     className?: string;
 }) => {
-    const $mapGeoLocation = useStore(mapGeoLocation);
-    const $additionalMapGeoLocations = useStore(additionalMapGeoLocations);
-    const $polyGeoJSON = useStore(polyGeoJSON);
+    const $mapGeoLocation = useStore(activeMapLocation);
+    const $additionalMapGeoLocations = useStore(activeAdditionalLocations);
+    const $polyGeoJSON = useStore(activePolygon);
     const $isLoading = useStore(isLoading);
+    const session = useStore(gameSession);
+    const area = useStore(sharedArea);
+    const pending = useStore(areaPending);
+    const online = useStore(connection) === "online";
     const [open, setOpen] = useState(false);
     const [inputValue, setInputValue] = useState("");
     const debouncedValue = useDebounce<string>(inputValue);
@@ -104,6 +118,7 @@ export const PlacePicker = ({
                 <Button
                     variant="outline"
                     role="combobox"
+                    disabled={session?.role === "hider"}
                     aria-expanded={open}
                     className={cn(
                         "w-[300px] justify-between light text-slate-700",
@@ -111,20 +126,24 @@ export const PlacePicker = ({
                     )}
                     data-tutorial-id="place-picker"
                 >
-                    {$polyGeoJSON
-                        ? "Polygon selected"
-                        : $mapGeoLocation &&
-                            $mapGeoLocation.properties &&
-                            $mapGeoLocation.properties.name
-                          ? [
-                                $mapGeoLocation,
-                                ...$additionalMapGeoLocations.map(
-                                    (x) => x.location,
-                                ),
-                            ]
-                                .map((location) => determineName(location))
-                                .join("; ")
-                          : "Hiding bounds"}
+                    {pending
+                        ? "Syncing area…"
+                        : session && !area
+                          ? "Choose game area"
+                          : $polyGeoJSON
+                            ? "Polygon selected"
+                            : $mapGeoLocation &&
+                                $mapGeoLocation.properties &&
+                                $mapGeoLocation.properties.name
+                              ? [
+                                    $mapGeoLocation,
+                                    ...$additionalMapGeoLocations.map(
+                                        (x) => x.location,
+                                    ),
+                                ]
+                                    .map((location) => determineName(location))
+                                    .join("; ")
+                              : "Hiding bounds"}
                     <ChevronsUpDown className="opacity-50" />
                 </Button>
             </PopoverTrigger>
@@ -179,7 +198,7 @@ export const PlacePicker = ({
                             <div
                                 className={cn(
                                     "flex shrink-0 flex-row gap-2 *:stroke-[1.5]",
-                                    $polyGeoJSON && "hidden",
+                                    ($polyGeoJSON || session) && "hidden",
                                 )}
                             >
                                 {!location.base &&
@@ -284,7 +303,12 @@ export const PlacePicker = ({
                 <Separator className="h-[0.5px]" />
                 <Command shouldFilter={false}>
                     <CommandInput
-                        placeholder="Search place..."
+                        placeholder={
+                            session && !online
+                                ? "Connect to change game area"
+                                : "Search place..."
+                        }
+                        disabled={!!session && (!online || pending)}
                         onKeyUp={(x) => {
                             setInputValue(x.currentTarget.value);
                         }}
@@ -312,7 +336,13 @@ export const PlacePicker = ({
                             {results.map((result) => (
                                 <CommandItem
                                     key={`${result.properties.osm_id}${result.properties.name}`}
+                                    disabled={!!session && (!online || pending)}
                                     onSelect={() => {
+                                        if (session) {
+                                            selectGameArea(result);
+                                            setOpen(false);
+                                            return;
+                                        }
                                         additionalMapGeoLocations.set([
                                             ...additionalMapGeoLocations.get(),
                                             {
@@ -340,19 +370,21 @@ export const PlacePicker = ({
                             ))}
                         </CommandGroup>
                     </CommandList>
-                    <Button
-                        variant="outline"
-                        className="font-normal bg-slate-50 hover:bg-slate-200"
-                        onClick={() => {
-                            mapGeoJSON.set(null);
-                            polyGeoJSON.set(null);
-                            questions.set([]);
-                            clearCache(CacheType.ZONE_CACHE);
-                        }}
-                    >
-                        Clear Questions & Cache
-                    </Button>
-                    {$polyGeoJSON && (
+                    {!session && (
+                        <Button
+                            variant="outline"
+                            className="font-normal bg-slate-50 hover:bg-slate-200"
+                            onClick={() => {
+                                mapGeoJSON.set(null);
+                                polyGeoJSON.set(null);
+                                questions.set([]);
+                                clearCache(CacheType.ZONE_CACHE);
+                            }}
+                        >
+                            Clear Questions & Cache
+                        </Button>
+                    )}
+                    {!session && $polyGeoJSON && (
                         <Button
                             variant="outline"
                             className="font-normal hover:bg-slate-200"

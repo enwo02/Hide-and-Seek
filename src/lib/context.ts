@@ -12,6 +12,7 @@ import type {
 } from "@/maps/api";
 import {
     gameSession,
+    sharedArea,
     sharedQuestions,
     sharedQuestionModified,
 } from "./game-client";
@@ -73,6 +74,28 @@ export const polyGeoJSON = persistentAtom<FeatureCollection<
     encode: JSON.stringify,
     decode: JSON.parse,
 });
+
+export const activeMapLocation = computed(
+    [mapGeoLocation, sharedArea],
+    (local, area): OpenStreetMap => area ?? local,
+);
+export const activeAdditionalLocations = computed(
+    [additionalMapGeoLocations, sharedArea],
+    (local, area) => (area ? [] : local),
+);
+export const activePolygon = computed(
+    [polyGeoJSON, sharedArea],
+    (local, area) => (area ? null : local),
+);
+export const sharedMapBoundary = atom<{
+    area: NonNullable<ReturnType<typeof sharedArea.get>>;
+    geometry: NonNullable<ReturnType<typeof mapGeoJSON.get>>;
+} | null>(null);
+export const activeMapBoundary = computed(
+    [mapGeoJSON, sharedMapBoundary, sharedArea],
+    (local, boundary, area) =>
+        area ? (boundary?.area === area ? boundary.geometry : null) : local,
+);
 
 export { questions, triggerLocalRefresh } from "./local-questions";
 export const visibleQuestions = computed(

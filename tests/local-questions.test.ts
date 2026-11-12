@@ -3,12 +3,12 @@ import { atom } from "nanostores";
 import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/context", () => ({
-    additionalMapGeoLocations: atom([]),
-    mapGeoJSON: atom(
+    activeAdditionalLocations: atom([]),
+    activeMapBoundary: atom(
         turf.featureCollection([turf.bboxPolygon([8, 47, 9, 48])]),
     ),
-    mapGeoLocation: atom(null),
-    polyGeoJSON: atom(null),
+    activeMapLocation: atom(null),
+    activePolygon: atom(null),
     overpassCustomHost: atom(""),
     overpassHost: atom(""),
 }));

@@ -10,9 +10,9 @@ import { toast } from "react-toastify";
 
 import {
     hiderMode,
-    mapGeoJSON,
-    mapGeoLocation,
-    polyGeoJSON,
+    activeMapBoundary,
+    activeMapLocation,
+    activePolygon,
     trainStations,
 } from "@/lib/context";
 import {
@@ -119,7 +119,7 @@ const bboxExtension = (
 export const determineMeasuringBoundary = async (
     question: MeasuringQuestion,
 ) => {
-    const bBox = turf.bbox(mapGeoJSON.get()!);
+    const bBox = turf.bbox(activeMapBoundary.get()!);
 
     switch (question.type) {
         case "highspeed-measure-shinkansen": {
@@ -328,9 +328,9 @@ const bufferedDeterminer = _.memoize(
             type: question.type,
             lat: question.lat,
             lng: question.lng,
-            entirety: polyGeoJSON.get()
-                ? polyGeoJSON.get()
-                : mapGeoLocation.get(),
+            entirety: activePolygon.get()
+                ? activePolygon.get()
+                : activeMapLocation.get(),
             geo: (question as any).geo,
             cat: (question as any).cat,
         }),
@@ -441,18 +441,18 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
         return question;
     }
 
-    const $mapGeoJSON = mapGeoJSON.get();
-    if ($mapGeoJSON === null) return question;
+    const $activeMapBoundary = activeMapBoundary.get();
+    if ($activeMapBoundary === null) return question;
 
     let feature = null;
 
     try {
-        feature = holedMask((await adjustPerMeasuring(question, $mapGeoJSON))!);
+        feature = holedMask((await adjustPerMeasuring(question, $activeMapBoundary))!);
     } catch {
         try {
             feature = await adjustPerMeasuring(question, {
                 type: "FeatureCollection",
-                features: [holedMask($mapGeoJSON)],
+                features: [holedMask($activeMapBoundary)],
             });
         } catch {
             return question;

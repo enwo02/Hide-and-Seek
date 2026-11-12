@@ -1,4 +1,4 @@
-import { gameSession } from "@/lib/game-client";
+import { gameSession, sharedArea } from "@/lib/game-client";
 import "leaflet/dist/leaflet.css";
 import "leaflet-contextmenu/dist/leaflet.contextmenu.css";
 import "leaflet-contextmenu";
@@ -24,10 +24,12 @@ import {
     locationCenterRequest,
     mapDataSetupPending,
     mapGeoJSON,
-    mapGeoLocation,
+    activeMapLocation,
+    activeMapBoundary,
+    activePolygon,
+    sharedMapBoundary,
     permanentOverlay,
     planningModeEnabled,
-    polyGeoJSON,
     questionFinishedMapData,
     visibleQuestions,
     questions,
@@ -36,6 +38,7 @@ import {
 } from "@/lib/context";
 import {
     beginQuestionLoading,
+    cancelQuestionLoading,
     finishQuestionLoading,
 } from "@/lib/question-loading";
 import { cn } from "@/lib/utils";
@@ -243,8 +246,9 @@ const getTileLayer = (
 
 export const Map = ({ className }: { className?: string }) => {
     useStore(additionalMapGeoLocations);
-    const $mapGeoLocation = useStore(mapGeoLocation);
+    const $mapGeoLocation = useStore(activeMapLocation);
     const $questions = useStore(visibleQuestions);
+    const area = useStore(sharedArea);
     const $baseTileLayer = useStore(baseTileLayer);
     const $thunderforestApiKey = useStore(thunderforestApiKey);
     const $geopsApiKey = useStore(geopsApiKey);
@@ -310,17 +314,22 @@ export const Map = ({ className }: { className?: string }) => {
                 await clearCache();
             }
 
-            let mapGeoData = mapGeoJSON.get();
+            let mapGeoData = activeMapBoundary.get();
 
             if (!mapGeoData) {
-                const polyGeoData = polyGeoJSON.get();
+                const polyGeoData = activePolygon.get();
                 if (polyGeoData) {
                     mapGeoData = polyGeoData;
                     mapGeoJSON.set(polyGeoData);
                 } else {
                     await toast.promise(
                         determineMapBoundaries().then((x) => {
-                            mapGeoJSON.set(x);
+                            signal.throwIfAborted();
+                            if (area !== sharedArea.get()) {
+                                throw new DOMException("Area changed", "AbortError");
+                            }
+                            if (area) sharedMapBoundary.set({ area, geometry: x });
+                            else mapGeoJSON.set(x);
                             mapGeoData = x;
                         }),
                         {
@@ -586,6 +595,32 @@ export const Map = ({ className }: { className?: string }) => {
         [map, $baseTileLayer, $thunderforestApiKey, $geopsApiKey],
     );
 
+    const previousArea = useRef<typeof area>(null);
+    const localView = useRef<{ center: L.LatLng; zoom: number } | null>(null);
+    useEffect(() => {
+        if (!map || previousArea.current === area) return;
+        cancelQuestionLoading();
+        questionFinishedMapData.set(null);
+        map.eachLayer((layer: L.Layer & { questionKey?: number; eliminationGeoJSON?: boolean }) => {
+            if (layer.questionKey !== undefined || layer.eliminationGeoJSON) map.removeLayer(layer);
+        });
+
+        if (area) {
+            localView.current ??= { center: map.getCenter(), zoom: map.getZoom() };
+            const extent = area.properties.extent;
+            if (extent && extent[0] > extent[2] && extent[3] > extent[1]) {
+                const [north, west, south, east] = extent;
+                map.fitBounds([[south, west], [north, east]], { maxZoom: 15, animate: false });
+            } else {
+                map.setView(area.geometry.coordinates, 12);
+            }
+        } else if (localView.current) {
+            map.setView(localView.current.center, localView.current.zoom);
+            localView.current = null;
+        }
+        previousArea.current = area;
+    }, [map, area]);
+
     useEffect(() => {
         if (!$isLoading && refreshPending.current) {
             refreshPending.current = false;
@@ -597,7 +632,7 @@ export const Map = ({ className }: { className?: string }) => {
         if (!map) return;
 
         refreshQuestions(true);
-    }, [$questions, map, $hiderMode, dataSetup]);
+    }, [$questions, map, $hiderMode, dataSetup, area]);
 
     useEffect(() => {
         const intervalId = setInterval(async () => {

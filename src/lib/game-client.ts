@@ -5,6 +5,7 @@ import type { Question } from "@/maps/schema";
 import {
     type Change,
     type Role,
+    parseGameArea,
     sharedFields,
     type SharedQuestion,
 } from "./game-protocol";
@@ -42,6 +43,35 @@ function tabState<T>(key: string, initial: T) {
 
 export const gameSession = tabState<Session | null>("gameSession", null);
 export const pendingChanges = tabState<Pending[]>("gameOutbox", []);
+export const sharedArea = atom<ReturnType<typeof parseGameArea> | null>(null);
+export const areaPending = atom(false);
+
+function receiveArea(area: ReturnType<typeof parseGameArea> | null) {
+    if (JSON.stringify(sharedArea.get()) !== JSON.stringify(area))
+        sharedArea.set(area);
+    areaPending.set(false);
+}
+
+export function selectGameArea(location: unknown) {
+    if (
+        gameSession.get()?.role !== "seeker" ||
+        connection.get() !== "online" ||
+        socket?.readyState !== WebSocket.OPEN ||
+        areaPending.get()
+    )
+        return;
+    try {
+        const area = parseGameArea(location);
+        gameError.set("");
+        socket.send(JSON.stringify({ type: "set-area", location: area }));
+        areaPending.set(true);
+    } catch {
+        gameError.set(
+            "Could not sync this area. Choose a named place and try again.",
+        );
+    }
+}
+
 export const sharedQuestions = atom<SharedQuestion[]>([]);
 export const connection = atom<"connecting" | "online" | "offline" | "expired">(
     "offline",
@@ -81,6 +111,7 @@ export function leaveGame() {
     socket = undefined;
     pendingChanges.set([]);
     sharedQuestions.set([]);
+    receiveArea(null);
     baselines.clear();
     keys.clear();
     connection.set("offline");
@@ -132,6 +163,7 @@ export function watchGameConnection() {
     const offline = () => {
         socket?.close();
         socket = undefined;
+        areaPending.set(false);
         clearTimeout(reconnect);
         if (connection.get() !== "expired") connection.set("offline");
     };
@@ -161,6 +193,7 @@ function connectGame() {
         if (socket !== live) return;
         const message = JSON.parse(data);
         if (message.type === "state") {
+            receiveArea(message.area ?? null);
             sharedQuestions.set(
                 (message.questions as SharedQuestion[]).map(applyRemote),
             );
@@ -168,6 +201,11 @@ function connectGame() {
             retry = 1000;
             for (const item of pendingChanges.get())
                 live.send(JSON.stringify(item.change));
+        } else if (message.type === "area") {
+            receiveArea(message.area);
+        } else if (message.type === "area-error") {
+            areaPending.set(false);
+            gameError.set(message.error);
         } else if (message.type === "update") {
             const records = sharedQuestions.get();
             const index = records.findIndex(({ id }) => id === message.id);
@@ -233,7 +271,11 @@ function connectGame() {
         if (socket !== live) return;
         socket = undefined;
         connection.set(code === 4001 ? "expired" : "offline");
-        if (code === 4001) sharedQuestions.set([]);
+        if (code === 4001) {
+            sharedQuestions.set([]);
+            receiveArea(null);
+        }
+        areaPending.set(false);
         if (code !== 4001) {
             reconnect = setTimeout(connectGame, retry);
             retry = Math.min(retry * 2, 30000);

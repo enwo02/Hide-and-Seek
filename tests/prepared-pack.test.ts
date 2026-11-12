@@ -7,10 +7,10 @@ import { expect, it, vi } from "vitest";
 import { atom } from "nanostores";
 
 vi.mock("@/lib/context", () => ({
-    additionalMapGeoLocations: atom([]),
-    mapGeoJSON: atom(null),
-    mapGeoLocation: atom({ properties: { osm_id: 51701, osm_type: "R" } }),
-    polyGeoJSON: atom(null),
+    activeAdditionalLocations: atom([]),
+    activeMapBoundary: atom(null),
+    activeMapLocation: atom({ properties: { osm_id: 51701, osm_type: "R" } }),
+    activePolygon: atom(null),
     overpassCustomHost: atom(""),
     overpassHost: atom(""),
 }));

@@ -5,12 +5,12 @@ import osmtogeojson from "osmtogeojson";
 import { toast } from "react-toastify";
 
 import {
-    additionalMapGeoLocations,
-    mapGeoJSON,
-    mapGeoLocation,
+    activeAdditionalLocations,
+    activeMapBoundary,
+    activeMapLocation,
     overpassCustomHost,
     overpassHost,
-    polyGeoJSON,
+    activePolygon,
 } from "@/lib/context";
 import { questionLoadingSignal } from "@/lib/question-loading";
 import { safeUnion } from "@/maps/geo-utils";
@@ -366,8 +366,8 @@ export const findPlacesInZone = async (
                 filters.every((f) => /^\[admin_level=\d+\]/.test(f))))
     ) {
         const polygon =
-            mapGeoJSON.get() ??
-            polyGeoJSON.get() ??
+            activeMapBoundary.get() ??
+            activePolygon.get() ??
             (await determineMapBoundaries());
         if (coverageContains(pack, polygon)) {
             const polygons =
@@ -416,13 +416,13 @@ export const findPlacesInZone = async (
         predicates.every(Boolean)
     ) {
         const polygon =
-            mapGeoJSON.get() ??
-            polyGeoJSON.get() ??
+            activeMapBoundary.get() ??
+            activePolygon.get() ??
             (await determineMapBoundaries());
         if (coverageContains(pack, polygon)) {
             const data = localPlaces(pack, polygon, filters, searchType);
             const exclusions = await Promise.all(
-                additionalMapGeoLocations
+                activeAdditionalLocations
                     .get()
                     .filter((entry) => !entry.added)
                     .map((entry) =>
@@ -448,13 +448,13 @@ export const findPlacesInZone = async (
         }
     }
     let query = "";
-    const $polyGeoJSON = polyGeoJSON.get();
-    if ($polyGeoJSON) {
+    const $activePolygon = activePolygon.get();
+    if ($activePolygon) {
         query = `
 [out:json]${timeoutDuration != 0 ? `[timeout:${timeoutDuration}]` : ""};
 (
 ${searchType}${filter}(poly:"${turf
-            .getCoords($polyGeoJSON.features)
+            .getCoords($activePolygon.features)
             .flatMap((polygon) => polygon.geometry.coordinates)
             .flat()
             .map((coord) => [coord[1], coord[0]].join(" "))
@@ -465,7 +465,7 @@ ${
               .map(
                   (alternative) =>
                       `${searchType}${alternative}(poly:"${turf
-                          .getCoords($polyGeoJSON.features)
+                          .getCoords($activePolygon.features)
                           .flatMap((polygon) => polygon.geometry.coordinates)
                           .flat()
                           .map((coord) => [coord[1], coord[0]].join(" "))
@@ -478,8 +478,8 @@ ${
 out ${outType};
 `;
     } else {
-        const primaryLocation = mapGeoLocation.get();
-        const additionalLocations = additionalMapGeoLocations
+        const primaryLocation = activeMapLocation.get();
+        const additionalLocations = activeAdditionalLocations
             .get()
             .filter((entry) => entry.added)
             .map((entry) => entry.location);
@@ -521,7 +521,7 @@ out ${outType};
         loadingText,
         CacheType.ZONE_CACHE,
     );
-    const subtractedEntries = additionalMapGeoLocations
+    const subtractedEntries = activeAdditionalLocations
         .get()
         .filter((e) => !e.added);
     const subtractedPolygons = subtractedEntries.map((entry) => entry.location);
@@ -602,11 +602,11 @@ export const determineMapBoundaries = async () => {
     const mapGeoDatum = await Promise.all(
         [
             {
-                location: mapGeoLocation.get(),
+                location: activeMapLocation.get(),
                 added: true,
                 base: true,
             },
-            ...additionalMapGeoLocations.get(),
+            ...activeAdditionalLocations.get(),
         ].map(async (location) => ({
             added: location.added,
             data: await determineGeoJSON(

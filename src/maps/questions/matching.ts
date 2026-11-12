@@ -17,9 +17,9 @@ import { toast } from "react-toastify";
 
 import {
     hiderMode,
-    mapGeoJSON,
-    mapGeoLocation,
-    polyGeoJSON,
+    activeMapBoundary,
+    activeMapLocation,
+    activePolygon,
 } from "@/lib/context";
 import {
     findAdminBoundary,
@@ -256,9 +256,9 @@ export const determineMatchingBoundary = _.memoize(
             lng: question.lng,
             cat: question.cat,
             geo: question.geo,
-            entirety: polyGeoJSON.get()
-                ? polyGeoJSON.get()
-                : mapGeoLocation.get(),
+            entirety: activePolygon.get()
+                ? activePolygon.get()
+                : activeMapLocation.get(),
         }),
 );
 
@@ -393,19 +393,19 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
         return question;
     }
 
-    const $mapGeoJSON = mapGeoJSON.get();
-    if ($mapGeoJSON === null) return question;
+    const $activeMapBoundary = activeMapBoundary.get();
+    if ($activeMapBoundary === null) return question;
 
     let feature = null;
 
     try {
-        feature = holedMask((await adjustPerMatching(question, $mapGeoJSON))!);
+        feature = holedMask((await adjustPerMatching(question, $activeMapBoundary))!);
     } catch {
         signal?.throwIfAborted();
         try {
             feature = await adjustPerMatching(question, {
                 type: "FeatureCollection",
-                features: [holedMask($mapGeoJSON)],
+                features: [holedMask($activeMapBoundary)],
             });
         } catch {
             return question;

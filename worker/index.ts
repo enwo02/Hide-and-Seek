@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+    parseGameArea,
     sharedFields,
     type Change,
     type Role,
@@ -143,7 +144,11 @@ export class Game extends DurableObject<Env> {
                 token,
                 expires: room.expires,
             });
-            this.send(server, { type: "state", questions: this.snapshot() });
+            this.send(server, {
+                type: "state",
+                questions: this.snapshot(),
+                area: this.area(),
+            });
             return new Response(null, {
                 status: 101,
                 webSocket: client,
@@ -193,6 +198,19 @@ export class Game extends DurableObject<Env> {
         return token;
     }
 
+    private area() {
+        const exists = this.sql
+            .exec("SELECT 1 FROM sqlite_master WHERE name = 'game_area'")
+            .toArray().length;
+        if (!exists) return null;
+        const record = this.sql
+            .exec<{
+                location: string;
+            }>("SELECT location FROM game_area WHERE id = 1")
+            .toArray()[0];
+        return record ? JSON.parse(record.location) : null;
+    }
+
     private snapshot(): SharedQuestion[] {
         return this.sql
             .exec<{ id: string; version: number; data: string }>(
@@ -218,6 +236,7 @@ export class Game extends DurableObject<Env> {
     webSocketMessage(socket: WebSocket, message: string | ArrayBuffer) {
         const start = performance.now();
         let operation: string | undefined;
+        let areaChange = false;
         try {
             const player = socket.deserializeAttachment();
             if (player.expires <= Date.now()) {
@@ -233,7 +252,23 @@ export class Game extends DurableObject<Env> {
             }
             if (typeof message !== "string" || message.length > 65536)
                 throw Error("Question is too large");
-            const change: Change = JSON.parse(message);
+            const payload = JSON.parse(message);
+            if (payload?.type === "set-area") {
+                areaChange = true;
+                const parsed = parseGameArea(payload.location);
+                this.sql.exec(
+                    "CREATE TABLE IF NOT EXISTS game_area (id INTEGER PRIMARY KEY, location TEXT)",
+                );
+                this.sql.exec(
+                    "INSERT OR REPLACE INTO game_area VALUES (1, ?)",
+                    JSON.stringify(parsed),
+                );
+                for (const peer of this.ctx.getWebSockets()) {
+                    this.send(peer, { type: "area", area: parsed });
+                }
+                return;
+            }
+            const change: Change = payload;
             if (
                 typeof change.operation !== "string" ||
                 !idPattern.test(change.operation) ||
@@ -323,7 +358,7 @@ export class Game extends DurableObject<Env> {
             });
         } catch (cause) {
             this.send(socket, {
-                type: "error",
+                type: areaChange ? "area-error" : "error",
                 operation,
                 error:
                     cause instanceof Error && cause.name !== "ZodError"

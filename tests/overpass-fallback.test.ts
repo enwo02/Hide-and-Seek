@@ -3,10 +3,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/context", () => ({
     isLoading: atom(false),
-    additionalMapGeoLocations: atom([]),
-    mapGeoJSON: atom(null),
-    mapGeoLocation: atom(null),
-    polyGeoJSON: atom(null),
+    activeAdditionalLocations: atom([]),
+    activeMapBoundary: atom(null),
+    activeMapLocation: atom(null),
+    activePolygon: atom(null),
     overpassCustomHost: atom(""),
     overpassHost: atom(""),
 }));

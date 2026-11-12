@@ -1,4 +1,4 @@
-import { gameSession, isPending } from "@/lib/game-client";
+import { gameSession, isPending, sharedArea } from "@/lib/game-client";
 import "leaflet-draw/dist/leaflet.draw.css";
 
 import { useStore } from "@nanostores/react";
@@ -240,6 +240,7 @@ const MeasuringPointMarker = ({
 
 export const PolygonDraw = () => {
     const $drawingQuestionKey = useStore(drawingQuestionKey);
+    const area = useStore(sharedArea);
     const $questions = useStore(visibleQuestions);
 
     const featureRef = useRef<any | null>(null);
@@ -270,7 +271,7 @@ export const PolygonDraw = () => {
 
     const onChange = () => {
         if (drawingQuestionKey.get() === -1) {
-            if (!featureRef.current?._layers) return;
+            if (sharedArea.get() || !featureRef.current?._layers) return;
 
             const layers = featureRef.current._layers;
             const geoJSONs = Object.values(layers).map((layer: any) =>
@@ -405,6 +406,8 @@ export const PolygonDraw = () => {
             featureRef.current.clearLayers();
         }
     }, [$drawingQuestionKey]);
+
+    if (area && !question) return null;
 
     return (
         <FeatureGroup ref={featureRef}>

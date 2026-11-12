@@ -2,7 +2,9 @@
 
 Multiplayer is optional. Anyone with the game code can join and choose Hider or Seeker. Questions start with **Sync off** and stay in the originating browser. In a game, seekers can share questions and enter answers manually from WhatsApp. Hiders see the shared cards and their lock state. Turning Sync off withdraws a shared card and saves a private copy for the seeker who withdrew it. Other seekers can edit an unlocked shared card, unlock a locked card, or withdraw it. When edits conflict, the server keeps the accepted version and the other seeker sees a message and the current card.
 
-The Pages site calls a separate Worker over HTTPS and uses secure WebSockets for live updates. A SQLite-backed Durable Object is created per game on demand. Games expire 24 hours after creation. The object deletes its room data and closes its connections on expiry. The server stores the game credentials, shared question data and versions, and the information needed to acknowledge retries. Map settings, hider location, and private questions stay on the device. The browser tab retains its game credentials and pending changes across reloads.
+A seeker can choose a named game area from the search above the map. The selection updates the map for both teams and is restored on reconnect. Each new selection replaces the previous shared area. Solo map settings are restored when you leave.
+
+The Pages site calls a separate Worker over HTTPS and uses secure WebSockets for live updates. A SQLite-backed Durable Object is created per game on demand. Games expire 24 hours after creation. The object deletes its room data and closes its connections on expiry. The server stores the game credentials, shared question data and versions, and the information needed to acknowledge retries. The selected game area is also stored. Solo map settings, hider location, and private questions stay on the device. The browser tab retains its game credentials and pending changes across reloads.
 
 ## Run locally
 
