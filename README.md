@@ -18,7 +18,7 @@ For smoother play and faster question results, save the Swiss game data in your 
 
 ### Multiplayer question sync
 
-Create or join a game from **Questions → Multiplayer**. Share the game code with everyone and the seeker PIN with seekers. Add a question, turn on **Sync**, collect the reply in WhatsApp, then enter the answer and lock the card. Both teams see the answer and lock. [See setup, deployment, and capacity](docs/multiplayer.md).
+Create or join a game from **Questions → Multiplayer**. Share the game code with everyone. Players choose their own team when joining. Add a question, turn on **Sync**, collect the reply in WhatsApp, then enter the answer and lock the card. Both teams see the answer and lock. [See setup, deployment, and capacity](docs/multiplayer.md).
 
 ### Credits
 

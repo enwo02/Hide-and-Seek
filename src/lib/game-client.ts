@@ -10,7 +10,7 @@ import {
 } from "./game-protocol";
 import { questions, triggerLocalRefresh } from "./local-questions";
 
-type Session = { code: string; role: Role; token: string; pin?: string };
+type Session = { code: string; role: Role; token: string };
 type Pending = { change: Change; localCopy?: Question; publishKey?: number };
 
 export const workerURL = (import.meta.env.PUBLIC_GAME_WORKER_URL || "").replace(
@@ -54,17 +54,13 @@ let socket: WebSocket | undefined;
 let reconnect: ReturnType<typeof setTimeout> | undefined;
 let retry = 1000;
 
-export async function enterGame(
-    code?: string,
-    role: Role = "seeker",
-    pin?: string,
-) {
+export async function enterGame(code?: string, role: Role = "seeker") {
     const response = await fetch(
         workerURL + (code === undefined ? "/games" : `/games/${code}/join`),
         {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ role, pin }),
+            body: JSON.stringify({ role }),
         },
     );
     const data = await response.json();
@@ -73,7 +69,6 @@ export async function enterGame(
         code: code || data.code,
         role,
         token: data.token,
-        pin: code ? undefined : data.pin,
     });
     retry = 1000;
     connectGame();

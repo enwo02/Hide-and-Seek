@@ -22,7 +22,6 @@ export function GameSession() {
     const pending = useStore(pendingChanges);
     const error = useStore(gameError);
     const [code, setCode] = useState("");
-    const [pin, setPin] = useState("");
     const [role, setRole] = useState<Role>("hider");
     const [busy, setBusy] = useState(false);
     useEffect(watchGameConnection, []);
@@ -35,9 +34,7 @@ export function GameSession() {
             await enterGame(
                 create ? undefined : code,
                 create ? "seeker" : role,
-                pin,
             );
-            setPin("");
         } catch (cause) {
             gameError.set(
                 cause instanceof Error
@@ -61,11 +58,6 @@ export function GameSession() {
                         Game <strong>{session.code}</strong> ·{" "}
                         {session.role === "seeker" ? "Seeker" : "Hider"}
                     </div>
-                    {session.pin && (
-                        <div>
-                            Seeker PIN <strong>{session.pin}</strong>
-                        </div>
-                    )}
                     <div role="status">
                         {status === "online"
                             ? "Connected"
@@ -132,18 +124,6 @@ export function GameSession() {
                             <option value="seeker">Seeker</option>
                         </select>
                     </label>
-                    {role === "seeker" && (
-                        <RawInput
-                            aria-label="Seeker PIN"
-                            placeholder="Seeker PIN"
-                            type="password"
-                            inputMode="numeric"
-                            pattern="[0-9]{8}"
-                            required
-                            value={pin}
-                            onChange={(event) => setPin(event.target.value)}
-                        />
-                    )}
                     <Button type="submit" size="sm" disabled={busy}>
                         Join game
                     </Button>

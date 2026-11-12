@@ -101,11 +101,7 @@ export class Game extends DurableObject<Env> {
                 .toArray().length;
             const room = exists
                 ? this.sql
-                      .exec<{
-                          pin: string;
-                          expires: number;
-                          attempts: number;
-                      }>("SELECT * FROM room")
+                      .exec<{ expires: number }>("SELECT expires FROM room")
                       .toArray()[0]
                 : undefined;
             if (!room || room.expires <= Date.now()) {
@@ -125,16 +121,6 @@ export class Game extends DurableObject<Env> {
                 }
                 if (input?.role !== "hider" && input?.role !== "seeker")
                     return error("Choose a team", 400);
-                if (input.role === "seeker") {
-                    if (room.attempts >= 100)
-                        return error("Seeker join limit reached", 429);
-                    if (input.pin !== room.pin) {
-                        this.sql.exec(
-                            "UPDATE room SET attempts = attempts + 1",
-                        );
-                        return error("Incorrect seeker PIN", 403);
-                    }
-                }
                 return Response.json({ token: this.issueToken(input.role) });
             }
 
@@ -185,27 +171,20 @@ export class Game extends DurableObject<Env> {
 
     private async create(code: string) {
         this.sql.exec(`
-            CREATE TABLE IF NOT EXISTS room (pin TEXT, expires INTEGER, attempts INTEGER DEFAULT 0);
+            CREATE TABLE IF NOT EXISTS room (expires INTEGER);
             CREATE TABLE IF NOT EXISTS players (token TEXT PRIMARY KEY, role TEXT);
             CREATE TABLE IF NOT EXISTS questions (id TEXT PRIMARY KEY, version INTEGER, data TEXT);
             CREATE TABLE IF NOT EXISTS receipts (player TEXT, operation TEXT, id TEXT, version INTEGER, PRIMARY KEY (player, operation));
         `);
         if (this.sql.exec("SELECT 1 FROM room").toArray().length)
             return error("Code in use", 409);
-        const pin = String(
-            crypto.getRandomValues(new Uint32Array(1))[0] % 100000000,
-        ).padStart(8, "0");
         const expires = Date.now() + lifetime;
         const token = this.ctx.storage.transactionSync(() => {
-            this.sql.exec(
-                "INSERT INTO room (pin, expires) VALUES (?, ?)",
-                pin,
-                expires,
-            );
+            this.sql.exec("INSERT INTO room (expires) VALUES (?)", expires);
             return this.issueToken("seeker");
         });
         await this.ctx.storage.setAlarm(expires);
-        return Response.json({ code, pin, token });
+        return Response.json({ code, token });
     }
 
     private issueToken(role: Role) {
