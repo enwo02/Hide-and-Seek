@@ -41,7 +41,7 @@ export function createSwissVectorBasemap() {
                     earth: "#f6f5f2",
                     buildings: "#e4e1dc",
                     water: "#b9d8e9",
-                    railway: "#8e3448",
+                    railway: "#78283b",
                 },
                 { lang: "de" },
             ),
