@@ -1,3 +1,4 @@
+import { gameSession, isPending } from "@/lib/game-client";
 import "leaflet-draw/dist/leaflet.draw.css";
 
 import { useStore } from "@nanostores/react";
@@ -20,6 +21,7 @@ import {
     polyGeoJSON,
     questionModified,
     questions,
+    visibleQuestions,
     save,
 } from "@/lib/context";
 import { CacheType, clearCache } from "@/maps/api";
@@ -238,7 +240,7 @@ const MeasuringPointMarker = ({
 
 export const PolygonDraw = () => {
     const $drawingQuestionKey = useStore(drawingQuestionKey);
-    const $questions = useStore(questions);
+    const $questions = useStore(visibleQuestions);
 
     const featureRef = useRef<any | null>(null);
 
@@ -249,7 +251,11 @@ export const PolygonDraw = () => {
     } else {
         question = $questions.find((q) => q.key === $drawingQuestionKey);
 
-        if (question?.data.drag === false) {
+        if (
+            !question ||
+            !question.data.drag ||
+            gameSession.get()?.role === "hider"
+        ) {
             drawingQuestionKey.set(-1);
         }
         if (question?.id === "matching") {
@@ -279,7 +285,15 @@ export const PolygonDraw = () => {
             questions.set([]);
             clearCache(CacheType.ZONE_CACHE);
         } else if (
-            question?.id === "tentacles" &&
+            !question ||
+            !question.data.drag ||
+            isPending(question.key) ||
+            gameSession.get()?.role === "hider" ||
+            !visibleQuestions.get().includes(question)
+        ) {
+            return;
+        } else if (
+            question.id === "tentacles" &&
             question.data.locationType === "custom"
         ) {
             if (!featureRef.current?._layers) return;

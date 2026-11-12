@@ -14,13 +14,15 @@ import {
 import {
     autoSave,
     isLoading,
-    questions,
+    visibleQuestions,
     save,
     triggerLocalRefresh,
 } from "@/lib/context";
 
 import { cancelQuestionLoading } from "@/lib/question-loading";
 
+import { gameSession } from "@/lib/game-client";
+import { GameSession } from "./GameSession";
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import {
     DirectionQuestionComponent,
@@ -33,7 +35,8 @@ import {
 
 export const QuestionSidebar = () => {
     useStore(triggerLocalRefresh);
-    const $questions = useStore(questions);
+    const $questions = useStore(visibleQuestions);
+    const session = useStore(gameSession);
     const $autoSave = useStore(autoSave);
     const $isLoading = useStore(isLoading);
 
@@ -48,6 +51,7 @@ export const QuestionSidebar = () => {
                     }}
                 />
             </div>
+            <GameSession />
             <SidebarContent>
                 {$questions.map((question) => {
                     switch (question.id) {
@@ -116,13 +120,15 @@ export const QuestionSidebar = () => {
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                         )}
-                        <SidebarMenuItem>
-                            <AddQuestionDialog>
-                                <SidebarMenuButton disabled={$isLoading}>
-                                    Add Question
-                                </SidebarMenuButton>
-                            </AddQuestionDialog>
-                        </SidebarMenuItem>
+                        {session?.role !== "hider" && (
+                            <SidebarMenuItem>
+                                <AddQuestionDialog>
+                                    <SidebarMenuButton disabled={$isLoading}>
+                                        Add Question
+                                    </SidebarMenuButton>
+                                </AddQuestionDialog>
+                            </SidebarMenuItem>
+                        )}
                         <SidebarMenuItem>
                             <a
                                 href="https://github.com/taibeled/JetLagHideAndSeek"
@@ -134,7 +140,7 @@ export const QuestionSidebar = () => {
                                 </SidebarMenuButton>
                             </a>
                         </SidebarMenuItem>
-                        {!$autoSave && (
+                        {session?.role !== "hider" && !$autoSave && (
                             <SidebarMenuItem>
                                 <SidebarMenuButton
                                     className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500"

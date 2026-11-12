@@ -1,0 +1,10 @@
+{
+    "name": "hide-and-seek-sync",
+    "main": "worker/index.ts",
+    "compatibility_date": "2026-11-12",
+    "observability": { "enabled": true },
+    "durable_objects": {
+        "bindings": [{ "name": "GAMES", "class_name": "Game" }],
+    },
+    "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Game"] }],
+}

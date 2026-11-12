@@ -1,3 +1,4 @@
+import { gameSession } from "@/lib/game-client";
 import { useStore } from "@nanostores/react";
 import { point } from "@turf/turf";
 import { useEffect, useState } from "react";
@@ -10,7 +11,7 @@ import {
     hiderMode,
     isLoading,
     questionModified,
-    questions,
+    visibleQuestions,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
@@ -31,8 +32,9 @@ export const ThermometerQuestionComponent = ({
     className?: string;
 }) => {
     useStore(triggerLocalRefresh);
-    const $hiderMode = useStore(hiderMode);
-    const $questions = useStore(questions);
+    const soloHider = useStore(hiderMode);
+    const $hiderMode = useStore(gameSession) ? false : soloHider;
+    const $questions = useStore(visibleQuestions);
     const $isLoading = useStore(isLoading);
 
     const $defaultUnit = useStore(defaultUnit);

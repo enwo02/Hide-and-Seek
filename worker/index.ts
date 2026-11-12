@@ -1,0 +1,366 @@
+import { DurableObject } from "cloudflare:workers";
+import {
+    sharedFields,
+    type Change,
+    type Role,
+    type SharedQuestion,
+} from "../src/lib/game-protocol";
+
+interface Env {
+    GAMES: DurableObjectNamespace<Game>;
+    ALLOWED_ORIGINS?: string;
+}
+
+const lifetime = 24 * 60 * 60 * 1000;
+const codePattern = /^[A-F0-9]{8}$/;
+const idPattern = /^[a-f0-9-]{36}$/;
+const random = (bytes: number) =>
+    Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (byte) =>
+        byte.toString(16).padStart(2, "0"),
+    ).join("");
+
+const error = (message: string, status: number) =>
+    Response.json({ error: message }, { status });
+
+export default {
+    async fetch(request: Request, env: Env): Promise<Response> {
+        const origin = request.headers.get("Origin") || "";
+        const origins = (
+            env.ALLOWED_ORIGINS ||
+            "https://enwo02.github.io,http://localhost:4321,http://127.0.0.1:4321"
+        ).split(",");
+        if (!origins.includes(origin)) return error("Origin denied", 403);
+        const cors = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Max-Age": "600",
+            "Cache-Control": "no-store",
+            Vary: "Origin",
+        };
+        if (request.method === "OPTIONS")
+            return new Response(null, { status: 204, headers: cors });
+
+        const path = new URL(request.url).pathname;
+        let response: Response;
+        if (path === "/games" && request.method === "POST") {
+            do {
+                const code = random(4).toUpperCase();
+                response = await env.GAMES.getByName(code).fetch(
+                    new Request("https://game/create", {
+                        method: "POST",
+                        body: code,
+                    }),
+                );
+            } while (response.status === 409);
+        } else {
+            const [, resource, code, action, extra] = path.split("/");
+            if (
+                resource !== "games" ||
+                extra !== undefined ||
+                !codePattern.test(code || "") ||
+                !(
+                    (action === "join" && request.method === "POST") ||
+                    (action === "live" &&
+                        request.headers.get("Upgrade") === "websocket")
+                )
+            ) {
+                return new Response(null, { status: 404, headers: cors });
+            }
+            response = await env.GAMES.getByName(code).fetch(request);
+        }
+        if (response.status === 101) return response;
+        return new Response(response.body, {
+            status: response.status,
+            headers: { ...cors, "Content-Type": "application/json" },
+        });
+    },
+};
+
+export class Game extends DurableObject<Env> {
+    private get sql() {
+        return this.ctx.storage.sql;
+    }
+
+    private measure(kind: string, start: number) {
+        console.log({
+            game: this.ctx.id.toString(),
+            kind,
+            handlerMs: performance.now() - start,
+        });
+    }
+
+    async fetch(request: Request) {
+        const start = performance.now();
+        const action = new URL(request.url).pathname.split("/").pop();
+        try {
+            if (action === "create")
+                return await this.create(await request.text());
+            const exists = this.sql
+                .exec("SELECT 1 FROM sqlite_master WHERE name = 'room'")
+                .toArray().length;
+            const room = exists
+                ? this.sql
+                      .exec<{
+                          pin: string;
+                          expires: number;
+                          attempts: number;
+                      }>("SELECT * FROM room")
+                      .toArray()[0]
+                : undefined;
+            if (!room || room.expires <= Date.now()) {
+                return action === "live"
+                    ? this.closeConnection(request, 4001, "Game expired")
+                    : error("Game expired or unavailable", 410);
+            }
+            if (action === "join") {
+                const body = await request.text();
+                if (body.length > 256)
+                    return error("Invalid join request", 400);
+                let input;
+                try {
+                    input = JSON.parse(body);
+                } catch {
+                    return error("Invalid join request", 400);
+                }
+                if (input?.role !== "hider" && input?.role !== "seeker")
+                    return error("Choose a team", 400);
+                if (input.role === "seeker") {
+                    if (room.attempts >= 100)
+                        return error("Seeker join limit reached", 429);
+                    if (input.pin !== room.pin) {
+                        this.sql.exec(
+                            "UPDATE room SET attempts = attempts + 1",
+                        );
+                        return error("Incorrect seeker PIN", 403);
+                    }
+                }
+                return Response.json({ token: this.issueToken(input.role) });
+            }
+
+            const token = request.headers.get("Sec-WebSocket-Protocol");
+            const player = this.sql
+                .exec<{
+                    role: Role;
+                }>("SELECT role FROM players WHERE token = ?", token)
+                .toArray()[0];
+            if (!player)
+                return this.closeConnection(
+                    request,
+                    4001,
+                    "Game session unavailable",
+                );
+            const [client, server] = Object.values(new WebSocketPair());
+            this.ctx.acceptWebSocket(server);
+            server.serializeAttachment({
+                ...player,
+                token,
+                expires: room.expires,
+            });
+            this.send(server, { type: "state", questions: this.snapshot() });
+            return new Response(null, {
+                status: 101,
+                webSocket: client,
+                headers: { "Sec-WebSocket-Protocol": token! },
+            });
+        } finally {
+            this.measure(action || "http", start);
+        }
+    }
+
+    private closeConnection(request: Request, code: number, reason: string) {
+        const { 0: client, 1: server } = new WebSocketPair();
+        const token = request.headers.get("Sec-WebSocket-Protocol");
+        server.accept();
+        server.close(code, reason);
+        return new Response(null, {
+            status: 101,
+            webSocket: client,
+            headers:
+                token && /^[a-f0-9]{48}$/.test(token)
+                    ? { "Sec-WebSocket-Protocol": token }
+                    : {},
+        });
+    }
+
+    private async create(code: string) {
+        this.sql.exec(`
+            CREATE TABLE IF NOT EXISTS room (pin TEXT, expires INTEGER, attempts INTEGER DEFAULT 0);
+            CREATE TABLE IF NOT EXISTS players (token TEXT PRIMARY KEY, role TEXT);
+            CREATE TABLE IF NOT EXISTS questions (id TEXT PRIMARY KEY, version INTEGER, data TEXT);
+            CREATE TABLE IF NOT EXISTS receipts (player TEXT, operation TEXT, id TEXT, version INTEGER, PRIMARY KEY (player, operation));
+        `);
+        if (this.sql.exec("SELECT 1 FROM room").toArray().length)
+            return error("Code in use", 409);
+        const pin = String(
+            crypto.getRandomValues(new Uint32Array(1))[0] % 100000000,
+        ).padStart(8, "0");
+        const expires = Date.now() + lifetime;
+        const token = this.ctx.storage.transactionSync(() => {
+            this.sql.exec(
+                "INSERT INTO room (pin, expires) VALUES (?, ?)",
+                pin,
+                expires,
+            );
+            return this.issueToken("seeker");
+        });
+        await this.ctx.storage.setAlarm(expires);
+        return Response.json({ code, pin, token });
+    }
+
+    private issueToken(role: Role) {
+        const token = random(24);
+        this.sql.exec("INSERT INTO players VALUES (?, ?)", token, role);
+        return token;
+    }
+
+    private snapshot(): SharedQuestion[] {
+        return this.sql
+            .exec<{ id: string; version: number; data: string }>(
+                "SELECT * FROM questions WHERE data IS NOT NULL",
+            )
+            .toArray()
+            .map(({ id, version, data }) => ({
+                id,
+                version,
+                question: JSON.parse(data),
+            }));
+    }
+
+    private send(socket: WebSocket, message: unknown) {
+        if (socket.readyState !== WebSocket.OPEN) return;
+        try {
+            socket.send(JSON.stringify(message));
+        } catch {
+            // A disconnected client gets a fresh snapshot and retries its outbox.
+        }
+    }
+
+    webSocketMessage(socket: WebSocket, message: string | ArrayBuffer) {
+        const start = performance.now();
+        let operation: string | undefined;
+        try {
+            const player = socket.deserializeAttachment();
+            if (player.expires <= Date.now()) {
+                socket.close(4001, "Game expired");
+                return;
+            }
+            if (player.role !== "seeker") {
+                this.send(socket, {
+                    type: "error",
+                    error: "Only seekers can change shared questions",
+                });
+                return;
+            }
+            if (typeof message !== "string" || message.length > 65536)
+                throw Error("Question is too large");
+            const change: Change = JSON.parse(message);
+            if (
+                typeof change.operation !== "string" ||
+                !idPattern.test(change.operation) ||
+                typeof change.id !== "string" ||
+                !idPattern.test(change.id) ||
+                !Number.isSafeInteger(change.version) ||
+                change.version < 0
+            )
+                throw Error("Invalid change");
+            operation = change.operation;
+            const prior = this.sql
+                .exec<{
+                    id: string;
+                    version: number;
+                }>(
+                    "SELECT id, version FROM receipts WHERE player = ? AND operation = ?",
+                    player.token,
+                    operation,
+                )
+                .toArray()[0];
+            if (prior) {
+                this.send(socket, { type: "ack", operation, ...prior });
+                return;
+            }
+            const current = this.sql
+                .exec<{
+                    version: number;
+                    data: string | null;
+                }>(
+                    "SELECT version, data FROM questions WHERE id = ?",
+                    change.id,
+                )
+                .toArray()[0];
+            if (
+                (current && !current.data) ||
+                (current?.version ?? 0) !== change.version
+            )
+                throw Error(
+                    "Another seeker changed this question. Review the latest version and try again.",
+                );
+            const question =
+                change.question === null ? null : sharedFields(change.question);
+            if (current?.data && question) {
+                const previous = JSON.parse(current.data);
+                if (!previous.data.drag) {
+                    previous.data.drag = question.data.drag;
+                    if (JSON.stringify(previous) !== JSON.stringify(question))
+                        throw Error("Unlock this question before editing it.");
+                }
+            }
+            if (
+                !current &&
+                this.sql
+                    .exec(
+                        "SELECT id FROM questions WHERE data IS NOT NULL LIMIT 100",
+                    )
+                    .toArray().length >= 100
+            ) {
+                throw Error("This game has reached its question limit");
+            }
+            if (!question && !current?.data)
+                throw Error("Question is already private");
+            const version = change.version + 1;
+            this.ctx.storage.transactionSync(() => {
+                this.sql.exec(
+                    "INSERT OR REPLACE INTO questions VALUES (?, ?, ?)",
+                    change.id,
+                    version,
+                    question && JSON.stringify(question),
+                );
+                this.sql.exec(
+                    "INSERT INTO receipts VALUES (?, ?, ?, ?)",
+                    player.token,
+                    operation!,
+                    change.id,
+                    version,
+                );
+            });
+            const update = { type: "update", id: change.id, version, question };
+            for (const peer of this.ctx.getWebSockets())
+                this.send(peer, update);
+            this.send(socket, {
+                type: "ack",
+                operation,
+                id: change.id,
+                version,
+            });
+        } catch (cause) {
+            this.send(socket, {
+                type: "error",
+                operation,
+                error:
+                    cause instanceof Error && cause.name !== "ZodError"
+                        ? cause.message
+                        : "Invalid question",
+            });
+        } finally {
+            this.measure("message", start);
+        }
+    }
+
+    async alarm() {
+        const start = performance.now();
+        for (const socket of this.ctx.getWebSockets())
+            socket.close(4001, "Game expired");
+        await this.ctx.storage.deleteAll();
+        this.measure("expiry", start);
+    }
+}

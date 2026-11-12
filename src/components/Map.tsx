@@ -1,3 +1,4 @@
+import { gameSession } from "@/lib/game-client";
 import "leaflet/dist/leaflet.css";
 import "leaflet-contextmenu/dist/leaflet.contextmenu.css";
 import "leaflet-contextmenu";
@@ -28,6 +29,7 @@ import {
     planningModeEnabled,
     polyGeoJSON,
     questionFinishedMapData,
+    visibleQuestions,
     questions,
     thunderforestApiKey,
     triggerLocalRefresh,
@@ -242,7 +244,7 @@ const getTileLayer = (
 export const Map = ({ className }: { className?: string }) => {
     useStore(additionalMapGeoLocations);
     const $mapGeoLocation = useStore(mapGeoLocation);
-    const $questions = useStore(questions);
+    const $questions = useStore(visibleQuestions);
     const $baseTileLayer = useStore(baseTileLayer);
     const $thunderforestApiKey = useStore(thunderforestApiKey);
     const $geopsApiKey = useStore(geopsApiKey);
@@ -330,7 +332,7 @@ export const Map = ({ className }: { className?: string }) => {
 
             signal.throwIfAborted();
 
-            if ($hiderMode !== false) {
+            if ($hiderMode !== false && !gameSession.get()) {
                 for (const question of loadingQuestions) {
                     signal.throwIfAborted();
                     await hiderifyQuestion(question);

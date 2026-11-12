@@ -1,3 +1,4 @@
+import { questions, triggerLocalRefresh } from "./local-questions";
 import { persistentAtom } from "@nanostores/persistent";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Map } from "leaflet";
@@ -9,13 +10,16 @@ import type {
     OpenStreetMap,
     StationCircle,
 } from "@/maps/api";
+import {
+    gameSession,
+    sharedQuestions,
+    sharedQuestionModified,
+} from "./game-client";
 import { extractStationLabel } from "@/maps/geo-utils";
 import {
     type DeepPartial,
     type Question,
-    type Questions,
     questionSchema,
-    questionsSchema,
     type Units,
 } from "@/maps/schema";
 
@@ -70,14 +74,25 @@ export const polyGeoJSON = persistentAtom<FeatureCollection<
     decode: JSON.parse,
 });
 
-export const questions = persistentAtom<Questions>("questions", [], {
-    encode: JSON.stringify,
-    decode: (x) => questionsSchema.parse(JSON.parse(x)),
-});
+export { questions, triggerLocalRefresh } from "./local-questions";
+export const visibleQuestions = computed(
+    [questions, sharedQuestions, gameSession],
+    (local, shared, session) => {
+        if (!session) return local;
+        const sharedCards = shared.map(({ question }) => question);
+        if (session.role === "hider") return sharedCards;
+        const sharedKeys = new Set(sharedCards.map(({ key }) => key));
+        return [
+            ...local.filter(({ key }) => !sharedKeys.has(key)),
+            ...sharedCards,
+        ];
+    },
+);
 export const addQuestion = (question: DeepPartial<Question>) =>
     questionModified(questions.get().push(questionSchema.parse(question)));
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const questionModified = (..._: any[]) => {
+    sharedQuestionModified();
     if (autoSave.get()) {
         questions.set([...questions.get()]);
     } else {
@@ -87,7 +102,7 @@ export const questionModified = (..._: any[]) => {
 
 export const leafletMapContext = atom<Map | null>(null);
 
-export const defaultUnit = persistentAtom<Units>("defaultUnit", "kilometers");
+export { defaultUnit } from "./question-unit";
 export const hiderMode = persistentAtom<
     | false
     | {
@@ -98,7 +113,6 @@ export const hiderMode = persistentAtom<
     encode: JSON.stringify,
     decode: JSON.parse,
 });
-export const triggerLocalRefresh = atom<number>(0);
 export const displayHidingZones = persistentAtom<boolean>(
     "displayHidingZones",
     false,

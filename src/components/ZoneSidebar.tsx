@@ -33,7 +33,7 @@ import {
     mergeDuplicates as mergeDuplicatesAtom,
     planningModeEnabled,
     questionFinishedMapData,
-    questions,
+    visibleQuestions,
     trainStations,
     useCustomStations as useCustomStationsAtom,
 } from "@/lib/context";
@@ -284,7 +284,7 @@ export const ZoneSidebar = () => {
                     return !turf.booleanWithin(circle, unionized);
                 });
 
-            for (const question of questions.get()) {
+            for (const question of visibleQuestions.get()) {
                 if (planningModeEnabled.get() && question.data.drag) {
                     continue;
                 }
@@ -1152,7 +1152,7 @@ async function selectionProcess(
         ),
     ]);
 
-    for (const question of questions.get()) {
+    for (const question of visibleQuestions.get()) {
         if (planningModeEnabled.get() && question.data.drag) {
             continue;
         }

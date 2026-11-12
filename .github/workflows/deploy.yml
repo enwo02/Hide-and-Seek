@@ -31,6 +31,8 @@ jobs:
                   echo "80ad86ede1862647533ff8f85d5a37beec886935954341a697f5558003ace35f  public/switzerland-20261110.pmtiles" | sha256sum --check
             - name: Install, build, and upload your site
               uses: withastro/action@v3
+              env:
+                  PUBLIC_GAME_WORKER_URL: ${{ vars.PUBLIC_GAME_WORKER_URL }}
               with:
                   path: . # The root location of your Astro project inside the repository. (optional)
                   node-version: 24 # The specific version of Node that should be used to build your site. Defaults to 20. (optional)

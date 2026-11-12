@@ -1,3 +1,4 @@
+import { gameSession } from "@/lib/game-client";
 import { useStore } from "@nanostores/react";
 import { Label } from "@radix-ui/react-label";
 import * as React from "react";
@@ -20,7 +21,7 @@ import {
     hiderMode,
     isLoading,
     questionModified,
-    questions,
+    visibleQuestions,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
@@ -49,8 +50,9 @@ export const MeasuringQuestionComponent = ({
     className?: string;
 }) => {
     useStore(triggerLocalRefresh);
-    const $hiderMode = useStore(hiderMode);
-    const $questions = useStore(questions);
+    const soloHider = useStore(hiderMode);
+    const $hiderMode = useStore(gameSession) ? false : soloHider;
+    const $questions = useStore(visibleQuestions);
     const $displayHidingZones = useStore(displayHidingZones);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);

@@ -1,3 +1,4 @@
+import { gameSession, isPending, pendingChanges } from "@/lib/game-client";
 import { useStore } from "@nanostores/react";
 import { type DragEndEvent, Icon } from "leaflet";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import {
     autoSave,
     hiderMode,
     questionModified,
-    questions,
+    visibleQuestions,
     save,
     triggerLocalRefresh,
 } from "@/lib/context";
@@ -44,7 +45,7 @@ const ColoredMarker = ({
     questionKey: number;
     sub?: string;
 }) => {
-    const $questions = useStore(questions);
+    const $questions = useStore(visibleQuestions);
     const $hiderMode = useStore(hiderMode);
     const $autoSave = useStore(autoSave);
     const [open, setOpen] = useState(false);
@@ -194,8 +195,10 @@ const ColoredMarker = ({
 };
 
 export const DraggableMarkers = () => {
+    const session = useStore(gameSession);
+    useStore(pendingChanges);
     useStore(triggerLocalRefresh);
-    const $questions = useStore(questions);
+    const $questions = useStore(visibleQuestions);
     const $hiderMode = useStore(hiderMode);
 
     return (
@@ -225,6 +228,8 @@ export const DraggableMarkers = () => {
                 />
             )}
             {$questions.map((question) => {
+                if (session?.role === "hider" || isPending(question.key))
+                    return null;
                 if (!question.data) return null;
                 if (!question.data.drag) return null;
                 if (question.data.hidden) return null;

@@ -1,3 +1,4 @@
+import { gameSession } from "@/lib/game-client";
 import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import { Suspense, use, useEffect, useMemo, useState } from "react";
@@ -17,7 +18,7 @@ import {
     hiderMode,
     isLoading,
     questionModified,
-    questions,
+    visibleQuestions,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { cn, mapToObj } from "@/lib/utils";
@@ -44,7 +45,7 @@ export const TentacleQuestionComponent = ({
     sub?: string;
     className?: string;
 }) => {
-    const $questions = useStore(questions);
+    const $questions = useStore(visibleQuestions);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
     const label = `Tentacles
@@ -243,7 +244,8 @@ const TentacleLocationSelector = ({
     disabled: boolean;
 }) => {
     useStore(triggerLocalRefresh);
-    const $hiderMode = useStore(hiderMode);
+    const soloHider = useStore(hiderMode);
+    const $hiderMode = useStore(gameSession) ? false : soloHider;
     const locations = use(promise);
     const [filteredFeatures, setFilteredFeatures] = useState<any[]>([]);
 
