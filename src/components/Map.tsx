@@ -87,73 +87,137 @@ const SwissVectorLayer = () => {
     const [ready, setReady] = useState(false);
 
     useEffect(() => {
-        let disposed = false;
-        let cleanup: (() => void) | undefined;
-        let failed = false;
+        let layer: L.MaplibreGL | undefined;
+        let startupTimer: number | undefined;
+        let retryTimer: number | undefined;
+        let attempts = 0;
+        const retryNotice = "swiss-vector-map-retry";
         const archiveBounds = L.latLngBounds([45.81, 5.94], [47.81, 10.5]);
         const coverage = turf.polygon(swissVectorCoverage.coordinates);
+        let disposed = false;
+        let loading = false;
 
-        void import("./SwissVectorBasemap")
-            .then(({ createSwissVectorBasemap }) => {
-                if (disposed) return;
-                const layer = createSwissVectorBasemap();
-                const showLayer = () => {
-                    const center = map.getCenter();
-                    if (
-                        failed ||
-                        map.getZoom() < 8 ||
-                        !archiveBounds.contains(center) ||
-                        !turf.booleanPointInPolygon(
-                            [center.lng, center.lat],
-                            coverage,
-                        )
-                    ) {
-                        layer.remove();
-                        setReady(false);
-                        return;
-                    }
-                    if (map.hasLayer(layer)) return;
-                    try {
-                        layer.addTo(map);
-                        const renderer = layer.getMaplibreMap();
-                        renderer.once("load", () => {
-                            if (!disposed && map.hasLayer(layer))
-                                setReady(true);
-                        });
-                        renderer.once("error", (event) => {
-                            if (!disposed && map.hasLayer(layer)) {
-                                console.warn(
-                                    "Swiss vector map failed to load",
-                                    event.error,
-                                );
-                                failed = true;
-                                layer.remove();
-                                setReady(false);
-                            }
-                        });
-                    } catch (error) {
-                        console.warn(
-                            "Swiss vector map failed to initialize",
-                            error,
-                        );
-                        failed = true;
-                        layer.remove();
-                    }
-                };
-                cleanup = () => {
-                    map.off("moveend", showLayer);
-                    layer.remove();
-                };
-                map.on("moveend", showLayer);
-                showLayer();
-            })
-            .catch(() => {
-                if (!disposed) setReady(false);
-            });
+        const isInCoverage = () => {
+            const center = map.getCenter();
+            return (
+                map.getZoom() >= 8 &&
+                archiveBounds.contains(center) &&
+                turf.booleanPointInPolygon([center.lng, center.lat], coverage)
+            );
+        };
 
+        const removeLayer = () => {
+            window.clearTimeout(startupTimer);
+            layer?.remove();
+            layer = undefined;
+        };
+
+        const retry = () => {
+            setReady(false);
+            removeLayer();
+            if (disposed || !isInCoverage()) return;
+
+            if (attempts < 3) {
+                retryTimer = window.setTimeout(() => {
+                    retryTimer = undefined;
+                    void showLayer();
+                }, attempts * 1000);
+                return;
+            }
+
+            toast.warn(
+                <button
+                    type="button"
+                    onClick={() => {
+                        attempts = 0;
+                        toast.dismiss(retryNotice);
+                        void showLayer();
+                    }}
+                >
+                    Retry Swiss map
+                </button>,
+                { toastId: retryNotice, autoClose: false, closeOnClick: false },
+            );
+        };
+
+        async function showLayer() {
+            if (!isInCoverage()) {
+                window.clearTimeout(retryTimer);
+                retryTimer = undefined;
+                attempts = 0;
+                toast.dismiss(retryNotice);
+                removeLayer();
+                setReady(false);
+                return;
+            }
+            if (
+                disposed ||
+                loading ||
+                layer ||
+                retryTimer !== undefined ||
+                attempts >= 3
+            ) {
+                return;
+            }
+
+            loading = true;
+            attempts++;
+            try {
+                const { createSwissVectorBasemap } =
+                    await import("./SwissVectorBasemap");
+                if (disposed || !isInCoverage()) return;
+
+                const candidate = createSwissVectorBasemap();
+                layer = candidate;
+                candidate.addTo(map);
+                candidate.getContainer().style.visibility = "hidden";
+                const renderer = candidate.getMaplibreMap();
+                const onTile = (event: {
+                    sourceId?: string;
+                    coord?: unknown;
+                }) => {
+                    if (event.sourceId !== "protomaps" || !event.coord) return;
+                    renderer.off("sourcedata", onTile);
+                    renderer.once("render", () => {
+                        if (disposed || layer !== candidate) return;
+                        window.clearTimeout(startupTimer);
+                        candidate.getContainer().style.visibility = "";
+                        attempts = 0;
+                        setReady(true);
+                    });
+                };
+                renderer.on("sourcedata", onTile);
+                renderer.on("error", (event) => {
+                    console.warn("Swiss vector map resource failed", event.error);
+                });
+                renderer.on("webglcontextlost", () => {
+                    if (layer !== candidate) return;
+                    window.clearTimeout(startupTimer);
+                    setReady(false);
+                    candidate.getContainer().style.visibility = "hidden";
+                    startupTimer = window.setTimeout(retry, 15000);
+                });
+                renderer.on("webglcontextrestored", () => {
+                    renderer.off("sourcedata", onTile);
+                    renderer.on("sourcedata", onTile);
+                });
+                startupTimer = window.setTimeout(retry, 15000);
+            } catch (error) {
+                console.warn("Swiss vector map failed to initialize", error);
+                retry();
+            } finally {
+                loading = false;
+            }
+        }
+
+        map.on("moveend", showLayer);
+        void showLayer();
         return () => {
             disposed = true;
-            cleanup?.();
+            map.off("moveend", showLayer);
+            window.clearTimeout(retryTimer);
+            toast.dismiss(retryNotice);
+            removeLayer();
         };
     }, [map]);
 

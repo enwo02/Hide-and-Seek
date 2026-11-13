@@ -18,7 +18,7 @@ export function createSwissVectorBasemap() {
         window.location.origin,
     );
 
-    return maplibreGL({
+    const layer = maplibreGL({
         attributionControl: { customAttribution: attribution },
         interactive: false,
         canvasContextAttributes: { preserveDrawingBuffer: true },
@@ -47,4 +47,14 @@ export function createSwissVectorBasemap() {
             ),
         },
     });
+
+    const remove = layer.onRemove;
+    layer.onRemove = (map) => {
+        // Leaflet registers the layer before MapLibre creates its WebGL context.
+        // If that creation throws, the adapter has no renderer to dispose.
+        if (layer.getMaplibreMap()) return remove.call(layer, map);
+        layer.getContainer()?.remove();
+        return layer;
+    };
+    return layer;
 }
