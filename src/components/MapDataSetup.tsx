@@ -1,5 +1,7 @@
+import { useStore } from "@nanostores/react";
 import { useEffect, useRef, useState } from "react";
 
+import { activeMapLocation } from "@/lib/context";
 import { downloadPack } from "@/maps/api/local-data";
 
 import { Button } from "./ui/button";
@@ -11,6 +13,7 @@ import {
 } from "./ui/dialog";
 
 export function MapDataSetup({ onReady }: { onReady: () => void }) {
+    const location = useStore(activeMapLocation);
     const [busy, setBusy] = useState(false);
     const [progress, setProgress] = useState("");
     const [error, setError] = useState("");
@@ -25,7 +28,11 @@ export function MapDataSetup({ onReady }: { onReady: () => void }) {
         setError("");
         setProgress("Starting download…");
         try {
-            await downloadPack(downloadController.signal, setProgress);
+            await downloadPack(
+                downloadController.signal,
+                setProgress,
+                location.properties.countrycode,
+            );
             onReady();
         } catch (error) {
             setProgress("");

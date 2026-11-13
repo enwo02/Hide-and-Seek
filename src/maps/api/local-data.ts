@@ -3,6 +3,8 @@ import type { Feature, MultiPolygon, Polygon } from "geojson";
 import { atom } from "nanostores";
 import osmtogeojson from "osmtogeojson";
 
+import { defaultMapRegion, getMapRegion } from "../regions";
+
 import { prepareQuestionRuntime } from "./runtime-assets";
 
 export interface LocalElement {
@@ -155,18 +157,22 @@ export async function removePack() {
 export async function downloadPack(
     signal: AbortSignal,
     progress: (message: string) => void,
+    countryCode?: string,
 ) {
-    const base = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/game-data/`;
+    const region = getMapRegion(countryCode) ?? defaultMapRegion;
+    const base = region.gameData;
     const manifestResponse = await fetch(`${base}manifest.json`, {
         signal,
         cache: "no-store",
     });
     if (!manifestResponse.ok)
-        throw new Error("Switzerland data is not available on this site yet.");
+        throw new Error(
+            `${region.name} data is not available on this site yet.`,
+        );
     const manifest = await manifestResponse.json();
     if (
         manifest.schemaVersion !== 1 ||
-        !/^switzerland-[a-f0-9]{16}(?:\.pack|\.json(?:\.gz)?)$/.test(
+        !/^[a-z][a-z0-9-]*-[a-f0-9]{16}(?:\.pack|\.json(?:\.gz)?)$/.test(
             manifest.file,
         ) ||
         !/^[a-f0-9]{64}$/.test(manifest.sha256) ||
@@ -181,7 +187,7 @@ export async function downloadPack(
         !Array.isArray(assets) ||
         descriptors.some(
             (asset) =>
-                !/^(?:switzerland|geometry)-[a-f0-9]{16}(?:\.pack|\.json(?:\.gz)?)$/.test(
+                !/^[a-z][a-z0-9-]*-[a-f0-9]{16}(?:\.pack|\.json(?:\.gz)?)$/.test(
                     asset.file,
                 ) ||
                 !/^[a-f0-9]{64}$/.test(asset.sha256) ||
@@ -193,8 +199,18 @@ export async function downloadPack(
     const total = descriptors.reduce((sum, asset) => sum + asset.bytes, 0);
     const cache = await caches.open(CACHE);
     let completed = 0;
+    const inFlight = new Map<string, number>();
+    const reportProgress = () => {
+        const received = [...inFlight.values()].reduce(
+            (sum, bytes) => sum + bytes,
+            completed,
+        );
+        progress(
+            `Downloading game data: ${(received / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(1)} MB`,
+        );
+    };
     const download = async (asset: any) => {
-        const key = `${base}${asset.file}`;
+        const key = assetKey(asset.file);
         const saved = await cache.match(key);
         if (
             saved &&
@@ -202,12 +218,10 @@ export async function downloadPack(
             saved.headers.get("x-game-bytes") === String(asset.bytes)
         ) {
             completed += asset.bytes;
-            progress(
-                `Saving game data: ${(completed / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(1)} MB`,
-            );
+            reportProgress();
             return saved;
         }
-        const response = await fetch(key, { signal });
+        const response = await fetch(`${base}${asset.file}`, { signal });
         if (!response.ok || !response.body)
             throw new Error("Could not download game data");
         const reader = response.body.getReader();
@@ -218,9 +232,8 @@ export async function downloadPack(
             if (done) break;
             chunks.push(value);
             received += value.length;
-            progress(
-                `Downloading game data: ${((completed + received) / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(1)} MB`,
-            );
+            inFlight.set(key, received);
+            reportProgress();
         }
         const bytes = new Uint8Array(received);
         let offset = 0;
@@ -242,7 +255,9 @@ export async function downloadPack(
             },
         });
         await cache.put(key, stored.clone());
+        inFlight.delete(key);
         completed += received;
+        reportProgress();
         return stored;
     };
     const core = await download(manifest);
@@ -257,7 +272,24 @@ export async function downloadPack(
         )
     )
         throw new Error("The boundary download list is incomplete");
-    for (const asset of assets) await download(asset);
+    const pending = assets.values();
+    let failed = false;
+    const results = await Promise.allSettled(
+        Array.from({ length: 4 }, async () => {
+            try {
+                while (!failed) {
+                    const next = pending.next();
+                    if (next.done) return;
+                    await download(next.value);
+                }
+            } catch (error) {
+                failed = true;
+                throw error;
+            }
+        }),
+    );
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
     progress("Saving calculation files…");
     await prepareQuestionRuntime(signal);
     signal.throwIfAborted();

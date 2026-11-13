@@ -47,7 +47,7 @@ import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
 import { clearCache, determineMapBoundaries } from "@/maps/api";
 import { getLocalPack } from "@/maps/api/local-data";
-import swissVectorCoverage from "@/maps/data/swiss-vector-coverage.json";
+import { defaultMapRegion, getMapRegion } from "@/maps/regions";
 
 import { DraggableMarkers } from "./DraggableMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
@@ -86,16 +86,18 @@ const SWISS_VECTOR_MIN_ZOOM = 8;
 
 const SwissVectorLayer = () => {
     const map = useMap();
+    const location = useStore(activeMapLocation);
+    const region = getMapRegion(location.properties.countrycode) ?? defaultMapRegion;
     const [ready, setReady] = useState(false);
 
     useEffect(() => {
+        setReady(false);
         let layer: L.MaplibreGL | undefined;
         let startupTimer: number | undefined;
         let retryTimer: number | undefined;
         let attempts = 0;
         const retryNotice = "swiss-vector-map-retry";
-        const archiveBounds = L.latLngBounds([45.81, 5.94], [47.81, 10.5]);
-        const coverage = turf.polygon(swissVectorCoverage.coordinates);
+        const coverage = turf.polygon(region.coverage);
         let disposed = false;
         let loading = false;
 
@@ -103,7 +105,6 @@ const SwissVectorLayer = () => {
             const center = map.getCenter();
             return (
                 map.getZoom() >= SWISS_VECTOR_MIN_ZOOM &&
-                archiveBounds.contains(center) &&
                 turf.booleanPointInPolygon([center.lng, center.lat], coverage)
             );
         };
@@ -169,7 +170,7 @@ const SwissVectorLayer = () => {
                     await import("./SwissVectorBasemap");
                 if (disposed || !isInCoverage()) return;
 
-                const candidate = createSwissVectorBasemap();
+                const candidate = createSwissVectorBasemap(region.archive);
                 layer = candidate;
                 candidate.addTo(map);
                 candidate.getContainer().style.visibility = "hidden";
@@ -221,7 +222,7 @@ const SwissVectorLayer = () => {
             toast.dismiss(retryNotice);
             removeLayer();
         };
-    }, [map]);
+    }, [map, region]);
 
     return ready ? null : getTileLayer("voyager", "", "");
 };
@@ -498,7 +499,7 @@ export const Map = ({ className }: { className?: string }) => {
                 center={$mapGeoLocation.geometry.coordinates}
                 zoom={
                     $baseTileLayer === "swiss-vector" &&
-                    $mapGeoLocation.properties.countrycode?.toUpperCase() === "CH"
+                    getMapRegion($mapGeoLocation.properties.countrycode)
                         ? SWISS_VECTOR_MIN_ZOOM
                         : 5
                 }

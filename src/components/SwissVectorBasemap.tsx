@@ -12,12 +12,7 @@ addProtocol("pmtiles", new Protocol().tile);
 const attribution =
     '<a href="https://protomaps.com/">Protomaps</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-export function createSwissVectorBasemap() {
-    const archive = new URL(
-        `${import.meta.env.BASE_URL.replace(/\/$/, "")}/switzerland-20261110.pmtiles`,
-        window.location.origin,
-    );
-
+export function createSwissVectorBasemap(archive: string) {
     const layer = maplibreGL({
         attributionControl: { customAttribution: attribution },
         interactive: false,
@@ -29,7 +24,7 @@ export function createSwissVectorBasemap() {
             sources: {
                 protomaps: {
                     type: "vector",
-                    url: `pmtiles://${archive.href}`,
+                    url: `pmtiles://${archive}`,
                     attribution,
                 },
             },
