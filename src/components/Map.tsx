@@ -82,6 +82,8 @@ const SbbTileLayer = ({ apiKey }: { apiKey: string }) => {
     );
 };
 
+const SWISS_VECTOR_MIN_ZOOM = 8;
+
 const SwissVectorLayer = () => {
     const map = useMap();
     const [ready, setReady] = useState(false);
@@ -100,7 +102,7 @@ const SwissVectorLayer = () => {
         const isInCoverage = () => {
             const center = map.getCenter();
             return (
-                map.getZoom() >= 8 &&
+                map.getZoom() >= SWISS_VECTOR_MIN_ZOOM &&
                 archiveBounds.contains(center) &&
                 turf.booleanPointInPolygon([center.lng, center.lat], coverage)
             );
@@ -466,7 +468,7 @@ export const Map = ({ className }: { className?: string }) => {
 
             questionFinishedMapData.set(mapGeoData);
 
-            if (autoZoom.get() && focus) {
+            if (autoZoom.get() && focus && !followMe.get()) {
                 const bbox = turf.bbox(holedMask(mapGeoData) as any);
                 const bounds = [
                     [bbox[1], bbox[0]],
@@ -494,7 +496,12 @@ export const Map = ({ className }: { className?: string }) => {
         () => (
             <MapContainer
                 center={$mapGeoLocation.geometry.coordinates}
-                zoom={5}
+                zoom={
+                    $baseTileLayer === "swiss-vector" &&
+                    $mapGeoLocation.properties.countrycode?.toUpperCase() === "CH"
+                        ? SWISS_VECTOR_MIN_ZOOM
+                        : 5
+                }
                 touchZoom={true}
                 // Preserve the exact pinch scale instead of snapping on release.
                 zoomSnap={0}
@@ -790,7 +797,7 @@ export const Map = ({ className }: { className?: string }) => {
                 toast.error("Unable to access your location.");
                 followMe.set(false);
             },
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
+            { maximumAge: 60000, timeout: 20000 },
         );
         return () => {
             if (followMeMarkerRef.current) {
