@@ -9,6 +9,7 @@ export interface Props {
 }
 
 const { className } = Astro.props;
+const assetBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
 <!doctype html>
@@ -19,29 +20,29 @@ const { className } = Astro.props;
         <link
             rel="icon"
             type="image/x-icon"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon.ico"
+            href={`${assetBase}/favicon.ico`}
         />
         <link
             rel="shortcut icon"
             type="image/x-icon"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon.ico"
+            href={`${assetBase}/favicon.ico`}
         />
         <link
             rel="apple-touch-icon"
             sizes="180x180"
-            href="https://taibeled.github.io/JetLagHideAndSeek/apple-touch-icon.png"
+            href={`${assetBase}/apple-touch-icon.png`}
         />
         <link
             rel="icon"
             type="image/png"
             sizes="32x32"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon-32x32.png"
+            href={`${assetBase}/favicon-32x32.png`}
         />
         <link
             rel="icon"
             type="image/png"
             sizes="16x16"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon-16x16.png"
+            href={`${assetBase}/favicon-16x16.png`}
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
