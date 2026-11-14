@@ -31,10 +31,7 @@ export function GameSession() {
         setBusy(true);
         gameError.set("");
         try {
-            await enterGame(
-                create ? undefined : code,
-                create ? "seeker" : role,
-            );
+            await enterGame(create ? undefined : code, role);
         } catch (cause) {
             gameError.set(
                 cause instanceof Error
@@ -92,6 +89,20 @@ export function GameSession() {
                         void enter(false);
                     }}
                 >
+                    <label className="flex items-center gap-2">
+                        Your team
+                        <select
+                            className="rounded border bg-background p-1"
+                            disabled={busy}
+                            value={role}
+                            onChange={(event) =>
+                                setRole(event.target.value as Role)
+                            }
+                        >
+                            <option value="hider">Hider</option>
+                            <option value="seeker">Seeker</option>
+                        </select>
+                    </label>
                     <Button
                         type="button"
                         size="sm"
@@ -100,7 +111,11 @@ export function GameSession() {
                     >
                         Create game
                     </Button>
+                    <p className="border-t pt-2 text-muted-foreground">
+                        Or join an existing game
+                    </p>
                     <RawInput
+                        disabled={busy}
                         aria-label="Game code"
                         placeholder="Game code"
                         value={code}
@@ -111,19 +126,6 @@ export function GameSession() {
                             setCode(event.target.value.toUpperCase())
                         }
                     />
-                    <label className="flex items-center gap-2">
-                        Team
-                        <select
-                            className="rounded border bg-background p-1"
-                            value={role}
-                            onChange={(event) =>
-                                setRole(event.target.value as Role)
-                            }
-                        >
-                            <option value="hider">Hider</option>
-                            <option value="seeker">Seeker</option>
-                        </select>
-                    </label>
                     <Button type="submit" size="sm" disabled={busy}>
                         Join game
                     </Button>

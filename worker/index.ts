@@ -45,12 +45,30 @@ export default {
         const path = new URL(request.url).pathname;
         let response: Response;
         if (path === "/games" && request.method === "POST") {
+            const body = await request.text();
+            let input;
+            try {
+                input = body.length <= 256 ? JSON.parse(body) : null;
+            } catch {
+                input = null;
+            }
+            if (input?.role !== "hider" && input?.role !== "seeker")
+                return new Response(
+                    JSON.stringify({ error: "Choose a team" }),
+                    {
+                        status: 400,
+                        headers: {
+                            ...cors,
+                            "Content-Type": "application/json",
+                        },
+                    },
+                );
             do {
                 const code = random(4).toUpperCase();
                 response = await env.GAMES.getByName(code).fetch(
                     new Request("https://game/create", {
                         method: "POST",
-                        body: code,
+                        body: JSON.stringify({ code, role: input.role }),
                     }),
                 );
             } while (response.status === 409);
@@ -95,8 +113,13 @@ export class Game extends DurableObject<Env> {
         const start = performance.now();
         const action = new URL(request.url).pathname.split("/").pop();
         try {
-            if (action === "create")
-                return await this.create(await request.text());
+            if (action === "create") {
+                const { code, role } = await request.json<{
+                    code: string;
+                    role: Role;
+                }>();
+                return await this.create(code, role);
+            }
             const exists = this.sql
                 .exec("SELECT 1 FROM sqlite_master WHERE name = 'room'")
                 .toArray().length;
@@ -174,7 +197,7 @@ export class Game extends DurableObject<Env> {
         });
     }
 
-    private async create(code: string) {
+    private async create(code: string, role: Role) {
         this.sql.exec(`
             CREATE TABLE IF NOT EXISTS room (expires INTEGER);
             CREATE TABLE IF NOT EXISTS players (token TEXT PRIMARY KEY, role TEXT);
@@ -186,7 +209,7 @@ export class Game extends DurableObject<Env> {
         const expires = Date.now() + lifetime;
         const token = this.ctx.storage.transactionSync(() => {
             this.sql.exec("INSERT INTO room (expires) VALUES (?)", expires);
-            return this.issueToken("seeker");
+            return this.issueToken(role);
         });
         await this.ctx.storage.setAlarm(expires);
         return Response.json({ code, token });

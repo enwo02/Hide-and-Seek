@@ -1,6 +1,6 @@
 # Multiplayer question sync
 
-Multiplayer is optional. Anyone with the game code can join and choose Hider or Seeker. Questions start with **Sync off** and stay in the originating browser. In a game, seekers can share questions and enter answers manually from WhatsApp. Hiders see the shared cards and their lock state. Turning Sync off withdraws a shared card and saves a private copy for the seeker who withdrew it. Other seekers can edit an unlocked shared card, unlock a locked card, or withdraw it. When edits conflict, the server keeps the accepted version and the other seeker sees a message and the current card.
+Multiplayer is optional. Choose **Your team** before creating or joining a game; either a hider or a seeker can create one. Anyone with the game code can join and choose Hider or Seeker. Questions start with **Sync off** and stay in the originating browser. In a game, seekers can share questions and enter answers manually from WhatsApp. Hiders see the shared cards and their lock state. Turning Sync off withdraws a shared card and saves a private copy for the seeker who withdrew it. Other seekers can edit an unlocked shared card, unlock a locked card, or withdraw it. When edits conflict, the server keeps the accepted version and the other seeker sees a message and the current card.
 
 A seeker can choose a named game area from the search above the map. The selection updates the map for both teams and is restored on reconnect. Each new selection replaces the previous shared area. Solo map settings are restored when you leave.
 
